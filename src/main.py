@@ -29,11 +29,12 @@ def train(n_epoch, n_batch):
     emphasis = RESOLUTION
 
     # some fancy stuff
-    bar = Bar("Train", max=n_epoch, suffix="%(percent).1f%% - %(eta)ds")
+    # bar = Bar("Train", max=n_epoch, suffix="%(percent).1f%% - %(eta)ds")
 
     for epoch in range(n_epoch):
         inpt, truth = get_train_data(RESOLUTION, n_batch, N_ANCHOR, N_GRID)
         oupt = model.forward(inpt)
+        
         # objectness loss
         obj_loss = criterion(oupt[:, at_obj, :, :], truth[:, at_obj, :, :])
         # location loss
@@ -41,13 +42,14 @@ def train(n_epoch, n_batch):
 
         loss = emphasis * obj_loss + loc_loss
         print(f"{obj_loss.item():.2f},\t{loc_loss.item():.2f}")
+
         loss.backward()
 
         optimizer.step()
 
-        bar.next()
+        # bar.next()
 
-    bar.finish()
+    # bar.finish()
 
 
 if __name__ == "__main__":

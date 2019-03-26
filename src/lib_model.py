@@ -9,7 +9,7 @@ class MyModel(torch.nn.Module):
         self.anchor = anchor
         self.n_anchor = len(anchor)
         self.scale = 16
-        self.n_grid = self.res // self.scale
+        self.n_grid = int(self.res / self.scale)
 
         self.network = torch.nn.Sequential(
             torch.nn.Conv2d(1, 4, 3, padding=1),
@@ -40,15 +40,25 @@ class MyModel(torch.nn.Module):
         )
 
     def forward(self, inpt):
-        oupt = self.network(inpt)
-        # oupt = torch.ones([2, 15, 5, 5])  # DEBUG
+        oupt_0 = self.network(inpt)
+        # oupt_0 = torch.ones([2, 15, 5, 5])  # DEBUG
+        oupt_1 = torch.zeros_like(oupt_0, requires_grad=True)
         for i, a in enumerate(self.anchor):
-            oupt[:, i * 5 + 1, :, :].mul_(self.scale).add_(self.grid_x_offset)
-            oupt[:, i * 5 + 2, :, :].mul_(self.scale).add_(self.grid_y_offset)
-            oupt[:, i * 5 + 3, :, :].mul_(2).add_(-1).exp_().mul_(a[0])
-            oupt[:, i * 5 + 4, :, :].mul_(2).add_(-1).exp_().mul_(a[1])
+            oupt_1[:, i * 5, :, :] = oupt_0[:, i * 5, :, :]
+            oupt_1[:, i * 5 + 1, :, :] = (
+                oupt_0[:, i * 5 + 1, :, :].mul(self.scale).add(self.grid_x_offset)
+            )
+            oupt_1[:, i * 5 + 2, :, :] = (
+                oupt_0[:, i * 5 + 2, :, :].mul(self.scale).add(self.grid_y_offset)
+            )
+            oupt_1[:, i * 5 + 3, :, :] = (
+                oupt_0[:, i * 5 + 3, :, :].mul(2).add(-1).exp().mul(a[0])
+            )
+            oupt_1[:, i * 5 + 4, :, :] = (
+                oupt_0[:, i * 5 + 4, :, :].mul(2).add(-1).exp().mul(a[1])
+            )
 
-        return oupt
+        return oupt_1
 
 
 if __name__ == "__main__":
