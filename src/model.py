@@ -41,6 +41,7 @@ class MyModel(torch.nn.Module):
 
     def forward(self, inpt):
         oupt = self.network(inpt)
+        oupt = torch.ones([2, 15, 5, 5]) # DEBUG
         for i, a in enumerate(self.anchors):
             oupt[:, i * 5 + 1, :, :].mul_(self.scale).add_(self.grid_x_offset)
             oupt[:, i * 5 + 2, :, :].mul_(self.scale).add_(self.grid_y_offset)
@@ -51,5 +52,6 @@ class MyModel(torch.nn.Module):
 
 
 if __name__ == "__main__":
-    model = MyModel(80, 2, [(16, 16), (10, 10), (16, 32)])
+    model = MyModel(80, [(16, 16), (10, 10), (16, 32)])
     print(model.forward(torch.zeros(2, 1, 80, 80)))
+    
