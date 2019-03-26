@@ -26,6 +26,8 @@ def train(n_epoch, n_batch):
     at_obj = list(filter(lambda x: x % 5 == 0, range(5 * N_ANCHOR)))
     at_loc = list(filter(lambda x: x % 5 != 0, range(5 * N_ANCHOR)))
 
+    emphasis = RESOLUTION
+
     # some fancy stuff
     bar = Bar("Train", max=n_epoch, suffix="%(percent).1f%% - %(eta)ds")
 
@@ -33,11 +35,12 @@ def train(n_epoch, n_batch):
         inpt, truth = get_train_data(RESOLUTION, n_batch, N_ANCHOR, N_GRID)
         oupt = model.forward(inpt)
         # objectness loss
-        obj_loss = criterion(inpt[:, at_obj, :, :], truth[:, at_obj, :, :])
+        obj_loss = criterion(oupt[:, at_obj, :, :], truth[:, at_obj, :, :])
         # location loss
-        loc_loss = criterion(inpt[:, at_loc, :, :], truth[:, at_loc, :, :])
+        loc_loss = criterion(oupt[:, at_loc, :, :], truth[:, at_loc, :, :])
 
         loss = emphasis * obj_loss + loc_loss
+        print(f"{obj_loss.item():.2f},\t{loc_loss.item():.2f}")
         loss.backward()
 
         optimizer.step()

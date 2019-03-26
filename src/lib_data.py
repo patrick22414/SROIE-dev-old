@@ -2,6 +2,7 @@ import torch
 from PIL import Image
 import random
 from torchvision import transforms
+import csv
 
 
 def get_train_data(res, n_batch, n_anchor, n_grid):
@@ -16,7 +17,7 @@ def get_train_data(res, n_batch, n_anchor, n_grid):
     transform = transforms.Compose(
         [transforms.Resize((res, res), Image.BICUBIC), transforms.ToTensor()]
     )
-    images = torch.stack(map(transform, images), dim=0)
+    images = torch.stack(list(map(transform, images)), dim=0)
 
     # convert txt files to NCWH
     grid_res = res // n_grid
@@ -38,8 +39,8 @@ def txt_to_tensor(txt_file, ratio_x, ratio_y, n_anchor, n_grid, grid_res):
                 (l[4] - l[0]) * ratio_x,  # w
                 (l[5] - l[1]) * ratio_y,  # h
             ]
-            gx = box[0] // grid_res
-            gy = box[1] // grid_res
+            gx = int(box[0] / grid_res)
+            gy = int(box[1] / grid_res)
             for c in [x * 5 for x in range(n_anchor)]:
                 if tensor[c, gx, gy] == 0:
                     tensor[c : c + 5, gx, gy] = torch.tensor([1] + box)
