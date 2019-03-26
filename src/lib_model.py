@@ -2,12 +2,12 @@ import torch
 
 
 class MyModel(torch.nn.Module):
-    def __init__(self, res, anchors):
+    def __init__(self, res, anchor):
         super().__init__()
 
         self.res = res
-        self.anchors = anchors
-        self.n_anchors = len(anchors)
+        self.anchor = anchor
+        self.n_anchor = len(anchor)
         self.scale = 16
         self.n_grid = self.res // self.scale
 
@@ -28,7 +28,7 @@ class MyModel(torch.nn.Module):
             torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(32, 5 * self.n_anchors, 3, padding=1),
+            torch.nn.Conv2d(32, 5 * self.n_anchor, 3, padding=1),
             torch.nn.Sigmoid(),
         )
 
@@ -41,8 +41,8 @@ class MyModel(torch.nn.Module):
 
     def forward(self, inpt):
         oupt = self.network(inpt)
-        oupt = torch.ones([2, 15, 5, 5]) # DEBUG
-        for i, a in enumerate(self.anchors):
+        # oupt = torch.ones([2, 15, 5, 5])  # DEBUG
+        for i, a in enumerate(self.anchor):
             oupt[:, i * 5 + 1, :, :].mul_(self.scale).add_(self.grid_x_offset)
             oupt[:, i * 5 + 2, :, :].mul_(self.scale).add_(self.grid_y_offset)
             oupt[:, i * 5 + 3, :, :].mul_(2).add_(-1).exp_().mul_(a[0])
@@ -54,4 +54,4 @@ class MyModel(torch.nn.Module):
 if __name__ == "__main__":
     model = MyModel(80, [(16, 16), (10, 10), (16, 32)])
     print(model.forward(torch.zeros(2, 1, 80, 80)))
-    
+
