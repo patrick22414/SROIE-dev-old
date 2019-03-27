@@ -6,7 +6,7 @@ from torchvision import transforms
 from progress.bar import Bar
 
 from lib_model import MyModel
-from lib_data import get_train_data
+from lib_data import get_train_data, get_valid_data
 
 RESOLUTION = 320
 
@@ -40,16 +40,22 @@ def train(n_epoch, n_batch):
         # location loss
         loc_loss = criterion(oupt[:, at_loc, :, :], truth[:, at_loc, :, :])
 
-        loss = emphasis * obj_loss + loc_loss
-        print(f"{obj_loss.item():.2f},\t{loc_loss.item():.2f}")
+        loss = obj_loss * emphasis + loc_loss / emphasis
+        print(f"{obj_loss.item():.2f}, \t{loc_loss.item():.2f}, \t{loss.item():.2f}")
 
         loss.backward()
 
         optimizer.step()
 
-        # bar.next()
 
-    # bar.finish()
+def valid_draw(dirname, n_batch):
+    inpt, jpg_files = get_valid_data(RESOLUTION, n_batch)
+    oupt = model.forward(inpt)
+    
+    for f in jpg_files:
+        pass
+        # TODO
+    pass
 
 
 if __name__ == "__main__":

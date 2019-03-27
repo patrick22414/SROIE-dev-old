@@ -3,12 +3,14 @@ from PIL import Image
 import random
 from torchvision import transforms
 import csv
+import os
+import glob
 
 
 def get_train_data(res, n_batch, n_anchor, n_grid):
     samples = random.sample(range(600), n_batch)
-    jpg_files = [f"data_train/{s:03d}.jpg" for s in samples]
-    txt_files = [f"data_train/{s:03d}.txt" for s in samples]
+    jpg_files = [f"../data_train/{s:03d}.jpg" for s in samples]
+    txt_files = [f"../data_train/{s:03d}.txt" for s in samples]
 
     # convert jpg files to NCWH
     images = [Image.open(file).convert("L") for file in jpg_files]
@@ -26,6 +28,19 @@ def get_train_data(res, n_batch, n_anchor, n_grid):
         labels[i, :, :, :] = txt_to_tensor(f, rx, ry, n_anchor, n_grid, grid_res)
 
     return images, labels
+
+
+def get_valid_data(res, n_batch):
+    jpg_files = random.sample(glob.glob("../data_valid/*.jpg"), n_batch)
+
+    # convert jpg files to NCWH
+    images = [Image.open(file).convert("L") for file in jpg_files]
+    transform = transforms.Compose(
+        [transforms.Resize((res, res), Image.BICUBIC), transforms.ToTensor()]
+    )
+    tensor = torch.stack(list(map(transform, images)), dim=0)
+
+    return tensor, jpg_files
 
 
 def txt_to_tensor(txt_file, ratio_x, ratio_y, n_anchor, n_grid, grid_res):

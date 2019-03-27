@@ -41,7 +41,9 @@ class MyModel(torch.nn.Module):
 
     def forward(self, inpt):
         oupt_0 = self.feature_extractor(inpt)
+        # print(oupt_0.size())
         oupt_1 = self.weigh_anchor(oupt_0)
+        # print(oupt_1.size())
 
         return oupt_1
 
@@ -58,7 +60,7 @@ class MyModel(torch.nn.Module):
                 ],
                 dim=1,
             )
-        return torch.stack(oupt, dim=1)
+        return torch.cat(oupt, dim=1)
 
 
 if __name__ == "__main__":
