@@ -34,7 +34,7 @@ def train(n_epoch, n_batch):
     for epoch in range(n_epoch):
         inpt, truth = get_train_data(RESOLUTION, n_batch, N_ANCHOR, N_GRID)
         oupt = model.forward(inpt)
-        
+
         # objectness loss
         obj_loss = criterion(oupt[:, at_obj, :, :], truth[:, at_obj, :, :])
         # location loss

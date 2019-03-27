@@ -11,7 +11,7 @@ class MyModel(torch.nn.Module):
         self.scale = 16
         self.n_grid = int(self.res / self.scale)
 
-        self.network = torch.nn.Sequential(
+        self.feature_extractor = torch.nn.Sequential(
             torch.nn.Conv2d(1, 4, 3, padding=1),
             torch.nn.BatchNorm2d(4),
             torch.nn.ReLU(),
@@ -40,28 +40,26 @@ class MyModel(torch.nn.Module):
         )
 
     def forward(self, inpt):
-        oupt_0 = self.network(inpt)
-        # oupt_0 = torch.ones([2, 15, 5, 5])  # DEBUG
-        oupt_1 = torch.zeros_like(oupt_0, requires_grad=True)
-        for i, a in enumerate(self.anchor):
-            oupt_1[:, i * 5, :, :] = oupt_0[:, i * 5, :, :]
-            oupt_1[:, i * 5 + 1, :, :] = (
-                oupt_0[:, i * 5 + 1, :, :].mul(self.scale).add(self.grid_x_offset)
-            )
-            oupt_1[:, i * 5 + 2, :, :] = (
-                oupt_0[:, i * 5 + 2, :, :].mul(self.scale).add(self.grid_y_offset)
-            )
-            oupt_1[:, i * 5 + 3, :, :] = (
-                oupt_0[:, i * 5 + 3, :, :].mul(2).add(-1).exp().mul(a[0])
-            )
-            oupt_1[:, i * 5 + 4, :, :] = (
-                oupt_0[:, i * 5 + 4, :, :].mul(2).add(-1).exp().mul(a[1])
-            )
+        oupt_0 = self.feature_extractor(inpt)
+        oupt_1 = self.weigh_anchor(oupt_0)
 
         return oupt_1
 
+    def weigh_anchor(self, inpt):
+        oupt = [None] * self.n_anchor
+        for i, a in enumerate(self.anchor):
+            oupt[i] = torch.stack(
+                [
+                    inpt[:, i * 5, :, :],
+                    inpt[:, i * 5 + 1, :, :].mul(self.scale).add(self.grid_x_offset),
+                    inpt[:, i * 5 + 2, :, :].mul(self.scale).add(self.grid_y_offset),
+                    inpt[:, i * 5 + 3, :, :].mul(2).add(-1).exp().mul(a[0]),
+                    inpt[:, i * 5 + 4, :, :].mul(2).add(-1).exp().mul(a[1]),
+                ],
+                dim=1,
+            )
+        return torch.stack(oupt, dim=1)
+
 
 if __name__ == "__main__":
-    model = MyModel(80, [(16, 16), (10, 10), (16, 32)])
-    print(model.forward(torch.zeros(2, 1, 80, 80)))
-
+    pass
