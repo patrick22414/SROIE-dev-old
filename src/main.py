@@ -1,10 +1,10 @@
-from PIL import Image
+from PIL import Image, ImageColor, ImageDraw
 import csv
 import random
 import torch
 from torchvision import transforms
 from progress.bar import Bar
-
+import os
 from lib_model import MyModel
 from lib_data import get_train_data, get_valid_data
 
@@ -12,13 +12,16 @@ RESOLUTION = 320
 
 N_GRID = 20
 GRID_SIZE = RESOLUTION // N_GRID
-ANCHOR = torch.tensor(
-    [[GRID_SIZE, GRID_SIZE], [GRID_SIZE, 2 * GRID_SIZE], [GRID_SIZE, 4 * GRID_SIZE]]
-)
+ANCHOR = [
+    [GRID_SIZE, GRID_SIZE],
+    [GRID_SIZE * 2, GRID_SIZE],
+    [GRID_SIZE * 4, GRID_SIZE],
+]
 N_ANCHOR = len(ANCHOR)
 
 model = MyModel(RESOLUTION, ANCHOR)
-criterion = torch.nn.MSELoss()
+criterion_obj = torch.nn.BCELoss()
+criterion_loc = torch.nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
 
@@ -28,35 +31,68 @@ def train(n_epoch, n_batch):
 
     emphasis = RESOLUTION
 
-    # some fancy stuff
-    # bar = Bar("Train", max=n_epoch, suffix="%(percent).1f%% - %(eta)ds")
-
     for epoch in range(n_epoch):
         inpt, truth = get_train_data(RESOLUTION, n_batch, N_ANCHOR, N_GRID)
         oupt = model.forward(inpt)
 
         # objectness loss
-        obj_loss = criterion(oupt[:, at_obj, :, :], truth[:, at_obj, :, :])
+        obj_loss = criterion_obj(oupt[:, at_obj, :, :], truth[:, at_obj, :, :])
         # location loss
-        loc_loss = criterion(oupt[:, at_loc, :, :], truth[:, at_loc, :, :])
+        loc_loss = criterion_loc(oupt[:, at_loc, :, :], truth[:, at_loc, :, :])
 
-        loss = obj_loss * emphasis + loc_loss / emphasis
-        print(f"{obj_loss.item():.2f}, \t{loc_loss.item():.2f}, \t{loss.item():.2f}")
+        loss = obj_loss * emphasis + loc_loss
+        print(
+            f"{epoch:06d}: {obj_loss.item():.2f}, \t{loc_loss.item():.2f}, \t{loss.item():.2f}"
+        )
 
         loss.backward()
 
         optimizer.step()
 
 
-def valid_draw(dirname, n_batch):
-    inpt, jpg_files = get_valid_data(RESOLUTION, n_batch)
-    oupt = model.forward(inpt)
-    
-    for f in jpg_files:
-        pass
-        # TODO
-    pass
+def valid_draw(dirname, n_batch, threshold):
+    with torch.no_grad():
+        inpt, jpg_files = get_valid_data(RESOLUTION, n_batch)
+        oupt = (
+            model.forward(inpt)
+            .reshape(n_batch, 5 * N_ANCHOR, N_GRID * N_GRID)
+            .transpose(1, 2)
+            .reshape(n_batch, N_GRID * N_GRID * N_ANCHOR, 5)
+        )
+
+        # print(oupt)
+
+    for file, res in zip(jpg_files, oupt):
+        canvas = Image.open(file).convert("L")
+        up_x = canvas.width / RESOLUTION
+        up_y = canvas.height / RESOLUTION
+        draw = ImageDraw.Draw(canvas)
+        for box in res:
+            if box[0].item() > threshold:
+                print(box[0].item())
+                draw.rectangle(box_tensor_to_rect(box, up_x, up_y), outline=0)
+            # else:
+            #     print(box[0].item())
+        canvas.save(dirname + os.path.basename(file))
+
+
+def box_tensor_to_rect(box, up_x, up_y):
+    x = box[1] * up_x
+    y = box[2] * up_y
+    wh = box[3] / 2 * up_x
+    hh = box[4] / 2 * up_y
+    return [x - wh, y - hh, x + wh, y + hh]
+
+
+def test_100():
+    max_epoch = 100
+    train(max_epoch, 16)
+    valid_draw(f"../results/valid_{max_epoch}/", 16, 0.6)
+
+
+def test_1():
+    train(1, 10)
 
 
 if __name__ == "__main__":
-    train(100, 10)
+    test_1()
