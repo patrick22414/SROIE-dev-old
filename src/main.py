@@ -1,22 +1,21 @@
-from PIL import Image, ImageColor, ImageDraw
 import csv
-import random
-import torch
-from torchvision import transforms
-from progress.bar import Bar
 import os
-from lib_model import MyModel
+import random
+
+import torch
+from PIL import Image, ImageColor, ImageDraw
+from progress.bar import Bar
+from torchvision import transforms
+
 from lib_data import get_train_data, get_valid_data
+from lib_model import MyModel
+from lib_struct import Anchor, BBox
 
 RESOLUTION = 320
 
 N_GRID = 20
-GRID_SIZE = RESOLUTION // N_GRID
-ANCHOR = [
-    [GRID_SIZE, GRID_SIZE],
-    [GRID_SIZE * 2, GRID_SIZE],
-    [GRID_SIZE * 4, GRID_SIZE],
-]
+GRID_RES = RESOLUTION // N_GRID
+ANCHOR = [Anchor(GRID_RES, GRID_RES), Anchor(GRID_RES * 2, GRID_RES), Anchor(GRID_RES * 4, GRID_RES)]
 N_ANCHOR = len(ANCHOR)
 
 model = MyModel(RESOLUTION, ANCHOR)
@@ -34,16 +33,15 @@ def train(n_epoch, n_batch):
     for epoch in range(n_epoch):
         inpt, truth = get_train_data(RESOLUTION, n_batch, N_ANCHOR, N_GRID)
         oupt = model.forward(inpt)
+        # print(oupt)
 
         # objectness loss
         obj_loss = criterion_obj(oupt[:, at_obj, :, :], truth[:, at_obj, :, :])
         # location loss
         loc_loss = criterion_loc(oupt[:, at_loc, :, :], truth[:, at_loc, :, :])
 
-        loss = obj_loss * emphasis + loc_loss
-        print(
-            f"{epoch:06d}: {obj_loss.item():.2f}, \t{loc_loss.item():.2f}, \t{loss.item():.2f}"
-        )
+        loss = obj_loss * emphasis + loc_loss / emphasis
+        print(f"{epoch:06d}: {obj_loss.item():.2f}, \t{loc_loss.item():.2f}, \t{loss.item():.2f}")
 
         loss.backward()
 
@@ -87,7 +85,7 @@ def box_tensor_to_rect(box, up_x, up_y):
 def test_100():
     max_epoch = 100
     train(max_epoch, 16)
-    valid_draw(f"../results/valid_{max_epoch}/", 16, 0.6)
+    valid_draw(f"../results/valid_100/", 10, 0.6)
 
 
 def test_1():
@@ -95,4 +93,4 @@ def test_1():
 
 
 if __name__ == "__main__":
-    test_1()
+    test_100()

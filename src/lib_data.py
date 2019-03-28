@@ -1,10 +1,11 @@
+import csv
+import glob
+import os
+import random
+
 import torch
 from PIL import Image
-import random
 from torchvision import transforms
-import csv
-import os
-import glob
 
 
 def get_train_data(res, n_batch, n_anchor, n_grid):
@@ -16,18 +17,16 @@ def get_train_data(res, n_batch, n_anchor, n_grid):
     images = [Image.open(file).convert("L") for file in jpg_files]
     ratio_x = [res / im.width for im in images]
     ratio_y = [res / im.height for im in images]
-    transform = transforms.Compose(
-        [transforms.Resize((res, res), Image.BICUBIC), transforms.ToTensor()]
-    )
-    images = torch.stack(list(map(transform, images)), dim=0)
+    transform = transforms.Compose([transforms.Resize((res, res), Image.BICUBIC), transforms.ToTensor()])
+    data = torch.stack(list(map(transform, images)), dim=0)
 
     # convert txt files to NCWH
-    grid_res = res // n_grid
+    grid_res = int(res / n_grid)
     labels = torch.zeros(n_batch, 5 * n_anchor, n_grid, n_grid)
     for i, (f, rx, ry) in enumerate(zip(txt_files, ratio_x, ratio_y)):
         labels[i, :, :, :] = txt_to_tensor(f, rx, ry, n_anchor, n_grid, grid_res)
 
-    return images, labels
+    return data, labels
 
 
 def get_valid_data(res, n_batch):
@@ -35,9 +34,7 @@ def get_valid_data(res, n_batch):
 
     # convert jpg files to NCWH
     images = [Image.open(file).convert("L") for file in jpg_files]
-    transform = transforms.Compose(
-        [transforms.Resize((res, res), Image.BICUBIC), transforms.ToTensor()]
-    )
+    transform = transforms.Compose([transforms.Resize((res, res), Image.BICUBIC), transforms.ToTensor()])
     tensor = torch.stack(list(map(transform, images)), dim=0)
 
     return tensor, jpg_files
