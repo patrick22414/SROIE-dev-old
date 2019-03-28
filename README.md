@@ -1,6 +1,8 @@
-# SORIE-dev
+# SROIE-dev
 
-My dev repo for SORIE with PyTorch.
+My development repo for ICDAR 2019 Robust Reading Challenge on Scanned Receipts OCR and Information Extraction (SROIE) with PyTorch.
+
+(Yes I made a typo in the repo name.)
 
 ## TODOs
 
