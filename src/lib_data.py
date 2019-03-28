@@ -18,15 +18,26 @@ def get_train_data(res, batch_size, anchors, n_grid):
     images = [Image.open(file).convert("L") for file in jpg_files]
     ratio_x = [res / im.width for im in images]
     ratio_y = [res / im.height for im in images]
-    transform = transforms.Compose([transforms.Resize((res, res), Image.BICUBIC), transforms.ToTensor()])
+    transform = transforms.Compose([transforms.Resize((res, res)), transforms.ToTensor()])
     data = torch.stack(list(map(transform, images)), dim=0)
 
     # convert txt files to List of (c, x, y, w, h) of len N
-    truth = [None] * batch_size
+    tc = [None] * batch_size
+    tx = [None] * batch_size
+    ty = [None] * batch_size
+    tw = [None] * batch_size
+    th = [None] * batch_size
     for i, (f, rx, ry) in enumerate(zip(txt_files, ratio_x, ratio_y)):
-        truth[i] = txt_to_tensors(f, rx, ry, anchors, n_grid, int(res / n_grid))
+        tc[i], tx[i], ty[i], tw[i], th[i], = txt_to_tensors(f, rx, ry, anchors, n_grid, int(res / n_grid))
 
-    return data, truth
+    return (
+        data,
+        torch.stack(tc, dim=0),
+        torch.stack(tx, dim=0),
+        torch.stack(ty, dim=0),
+        torch.stack(tw, dim=0),
+        torch.stack(th, dim=0),
+    )
 
 
 def get_valid_data(res, batch_size):
@@ -65,12 +76,12 @@ def txt_to_tensors(txt_file, ratio_x, ratio_y, anchors, n_grid, grid_res):
             grid_x = int(box_x / grid_res)
             grid_y = int(box_y / grid_res)
             anchor_choice = best_anchor(box_w, box_h, anchors)
-            if c[anchor_choice, grid_x, grid_y].item() == 0:
-                c[anchor_choice, grid_x, grid_y] = 1
-                x[anchor_choice, grid_x, grid_y] = box_x
-                y[anchor_choice, grid_x, grid_y] = box_y
-                w[anchor_choice, grid_x, grid_y] = box_w
-                h[anchor_choice, grid_x, grid_y] = box_h
+            if c[anchor_choice, grid_y, grid_x].item() == 0:
+                c[anchor_choice, grid_y, grid_x] = 1
+                x[anchor_choice, grid_y, grid_x] = box_x
+                y[anchor_choice, grid_y, grid_x] = box_y
+                w[anchor_choice, grid_y, grid_x] = box_w
+                h[anchor_choice, grid_y, grid_x] = box_h
 
     return c, x, y, w, h
 

@@ -13,84 +13,70 @@ from lib_struct import Anchor, BBox
 
 RESOLUTION = 320
 
-N_GRID = 20
-GRID_RES = RESOLUTION // N_GRID
-ANCHOR = [Anchor(GRID_RES, GRID_RES), Anchor(GRID_RES * 2, GRID_RES), Anchor(GRID_RES * 4, GRID_RES)]
-N_ANCHOR = len(ANCHOR)
+GRID_RES = 16
+N_GRID = int(RESOLUTION / GRID_RES)
+ANCHORS = [
+    Anchor(GRID_RES * 1, GRID_RES),
+    Anchor(GRID_RES * 2, GRID_RES),
+    Anchor(GRID_RES * 4, GRID_RES),
+    Anchor(GRID_RES * 8, GRID_RES),
+    Anchor(GRID_RES * 16, GRID_RES),
+]
+N_ANCHOR = len(ANCHORS)
 
-model = MyModel(RESOLUTION, ANCHOR)
-criterion_obj = torch.nn.BCELoss()
-criterion_loc = torch.nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+model = MyModel(RESOLUTION, ANCHORS)
+crit_confidence = torch.nn.BCELoss()
+crit_coordinate = torch.nn.MSELoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
+
+if torch.cuda.is_available():
+    model.cuda()
 
 
-def train(n_epoch, n_batch):
-    at_obj = list(filter(lambda x: x % 5 == 0, range(5 * N_ANCHOR)))
-    at_loc = list(filter(lambda x: x % 5 != 0, range(5 * N_ANCHOR)))
-
+def train(max_epoch, batch_size):
     emphasis = RESOLUTION
 
-    for epoch in range(n_epoch):
-        inpt, truth = get_train_data(RESOLUTION, n_batch, N_ANCHOR, N_GRID)
-        oupt = model.forward(inpt)
-        # print(oupt)
+    for epoch in range(max_epoch):
+        optimizer.zero_grad()
 
-        # objectness loss
-        obj_loss = criterion_obj(oupt[:, at_obj, :, :], truth[:, at_obj, :, :])
-        # location loss
-        loc_loss = criterion_loc(oupt[:, at_loc, :, :], truth[:, at_loc, :, :])
+        inpt, tc, tx, ty, tw, th = get_train_data(RESOLUTION, batch_size, ANCHORS, N_GRID)
+        if torch.cuda.is_available():
+            inpt.cuda()
+            tc.cuda()
+            tx.cuda()
+            ty.cuda()
+            tw.cuda()
+            th.cuda()
 
-        loss = obj_loss * emphasis + loc_loss / emphasis
-        print(f"{epoch:06d}: {obj_loss.item():.2f}, \t{loc_loss.item():.2f}, \t{loss.item():.2f}")
+        c, x, y, w, h = model.forward(inpt)
+
+        c_1 = c[tc]
+        c_0 = c[tc - 1]
+
+        loss_c = crit_confidence(c_1, torch.ones_like(c_1)) + crit_confidence(c_0, torch.zeros_like(c_0))
+        loss_x = crit_coordinate(x[tc], tx[tc])
+        loss_y = crit_coordinate(y[tc], ty[tc])
+        loss_w = crit_coordinate(w[tc], tw[tc])
+        loss_h = crit_coordinate(h[tc], th[tc])
+
+        loss = loss_c + loss_x + loss_y + loss_w + loss_h
 
         loss.backward()
 
         optimizer.step()
 
-
-def valid_draw(dirname, n_batch, threshold):
-    with torch.no_grad():
-        inpt, jpg_files = get_valid_data(RESOLUTION, n_batch)
-        oupt = (
-            model.forward(inpt)
-            .reshape(n_batch, 5 * N_ANCHOR, N_GRID * N_GRID)
-            .transpose(1, 2)
-            .reshape(n_batch, N_GRID * N_GRID * N_ANCHOR, 5)
+        print(
+            f"{epoch:06d}: loss: {loss:<6.2f} "
+            f"@c: {loss_c:<6.2f} @x: {loss_x:<6.2f} @y: {loss_y:<6.2f} @w: {loss_w:<6.2f} @h: {loss_h:<6.2f}"
         )
 
-        # print(oupt)
-
-    for file, res in zip(jpg_files, oupt):
-        canvas = Image.open(file).convert("L")
-        up_x = canvas.width / RESOLUTION
-        up_y = canvas.height / RESOLUTION
-        draw = ImageDraw.Draw(canvas)
-        for box in res:
-            if box[0].item() > threshold:
-                print(box[0].item())
-                draw.rectangle(box_tensor_to_rect(box, up_x, up_y), outline=0)
-            # else:
-            #     print(box[0].item())
-        canvas.save(dirname + os.path.basename(file))
-
-
-def box_tensor_to_rect(box, up_x, up_y):
-    x = box[1] * up_x
-    y = box[2] * up_y
-    wh = box[3] / 2 * up_x
-    hh = box[4] / 2 * up_y
-    return [x - wh, y - hh, x + wh, y + hh]
-
-
-def test_100():
-    max_epoch = 100
-    train(max_epoch, 16)
-    valid_draw(f"../results/valid_100/", 10, 0.6)
+    print(c[0, 0, :, :])
+    print(tc[0, 0, :, :])
 
 
 def test_1():
-    train(1, 10)
+    train(1000, 16)
 
 
 if __name__ == "__main__":
-    test_100()
+    test_1()

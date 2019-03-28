@@ -1,5 +1,4 @@
 import torch
-from torch.nn import functional as fun
 
 
 class MyModel(torch.nn.Module):
@@ -45,26 +44,26 @@ class MyModel(torch.nn.Module):
             torch.nn.ReLU(),
         )
 
-        self.conv_c = torch.nn.Conv2d(32, self.n_anchor, 3, padding=1)
-        self.conv_x = torch.nn.Conv2d(32, self.n_anchor, 3, padding=1)
-        self.conv_y = torch.nn.Conv2d(32, self.n_anchor, 3, padding=1)
-        self.conv_w = torch.nn.Conv2d(32, self.n_anchor, 3, padding=1)
-        self.conv_h = torch.nn.Conv2d(32, self.n_anchor, 3, padding=1)
+        self.conv_c = torch.nn.Conv2d(64, self.n_anchor, 3, padding=1)
+        self.conv_x = torch.nn.Conv2d(64, self.n_anchor, 3, padding=1)
+        self.conv_y = torch.nn.Conv2d(64, self.n_anchor, 3, padding=1)
+        self.conv_w = torch.nn.Conv2d(64, self.n_anchor, 3, padding=1)
+        self.conv_h = torch.nn.Conv2d(64, self.n_anchor, 3, padding=1)
 
     def forward(self, inpt):
         features = self.feature_extractor(inpt)
 
-        shape_1 = (-1, self.n_anchor, self.n_grid * self.n_grid)
-        shape_2 = (-1, self.n_anchor, self.n_grid, self.n_grid)
-        c = fun.softmax(self.conv_c(features).reshape(shape_1), dim=2).reshape(shape_2)
+        # shape_1 = (-1, self.n_anchor, self.n_grid * self.n_grid)
+        # shape_2 = (-1, self.n_anchor, self.n_grid, self.n_grid)
+        c = torch.sigmoid(self.conv_c(features))
 
-        x = fun.sigmoid(self.conv_x(features)).mul(self.grid_res).add(self.grid_offset_x)
+        x = torch.sigmoid(self.conv_x(features)).mul(self.grid_res).add(self.grid_offset_x)
 
-        y = fun.sigmoid(self.conv_y(features)).mul(self.grid_res).add(self.grid_offset_y)
+        y = torch.sigmoid(self.conv_y(features)).mul(self.grid_res).add(self.grid_offset_y)
 
-        w = fun.tanh(self.conv_w(features)).exp().mul(self.anchor_tensor_w)
+        w = torch.tanh(self.conv_w(features)).exp().mul(self.anchor_tensor_w)
 
-        h = fun.tanh(self.conv_h(features)).exp().mul(self.anchor_tensor_h)
+        h = torch.tanh(self.conv_h(features)).exp().mul(self.anchor_tensor_h)
 
         return c, x, y, w, h
 
