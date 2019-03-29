@@ -2,10 +2,8 @@ import argparse
 import torch
 
 from lib_struct import Anchor
-from lib_model import MyModel
+from lib_model import MyModel, GRID_RES
 from lib_data import get_train_data, get_valid_data
-
-GRID_RES = 16
 
 
 def train(model, args, anchors, n_grid):

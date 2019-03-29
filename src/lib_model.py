@@ -1,5 +1,6 @@
 import torch
 
+GRID_RES = 16
 
 class MyModel(torch.nn.Module):
     def __init__(self, res, anchors, device):
@@ -8,14 +9,12 @@ class MyModel(torch.nn.Module):
         self.res = res
         self.anchors = anchors
         self.n_anchor = len(anchors)
-        self.scale = 16
-        self.n_grid = int(self.res / self.scale)
-        self.grid_res = self.scale
+        self.n_grid = int(self.res / GRID_RES)
 
         self.anchor_tensor_w = torch.stack([torch.full((self.n_grid, self.n_grid), a.w, device=device) for a in self.anchors], dim=0)
         self.anchor_tensor_h = torch.stack([torch.full((self.n_grid, self.n_grid), a.h, device=device) for a in self.anchors], dim=0)
 
-        self.grid_offset_x = torch.arange(float(self.n_grid), device=device).repeat(self.n_grid, 1).mul(self.grid_res)
+        self.grid_offset_x = torch.arange(float(self.n_grid), device=device).repeat(self.n_grid, 1).mul(GRID_RES)
         self.grid_offset_y = self.grid_offset_x.t()
 
         self.feature_extractor = torch.nn.Sequential(
@@ -53,13 +52,11 @@ class MyModel(torch.nn.Module):
     def forward(self, inpt):
         features = self.feature_extractor(inpt)
 
-        # shape_1 = (-1, self.n_anchor, self.n_grid * self.n_grid)
-        # shape_2 = (-1, self.n_anchor, self.n_grid, self.n_grid)
         c = torch.sigmoid(self.conv_c(features))
 
-        x = torch.sigmoid(self.conv_x(features)).mul(self.grid_res).add(self.grid_offset_x)
+        x = torch.sigmoid(self.conv_x(features)).mul(GRID_RES).add(self.grid_offset_x)
 
-        y = torch.sigmoid(self.conv_y(features)).mul(self.grid_res).add(self.grid_offset_y)
+        y = torch.sigmoid(self.conv_y(features)).mul(GRID_RES).add(self.grid_offset_y)
 
         w = torch.tanh(self.conv_w(features)).exp().mul(self.anchor_tensor_w)
 
