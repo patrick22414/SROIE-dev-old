@@ -10,14 +10,23 @@ def main():
 
     args = parser.parse_args()
 
-    print(args.device)
-    print(args.resolution)
-    print(args.batch_size)
+    args.device = torch.device(args.device)
 
-    device = torch.device(args.device)
+    if args.device == torch.device('cpu'):
+        run(args)
+    else:
+        run_cuda(args)
 
-    print(device)
-    print(torch.cuda.current_device())
+
+def run(args):
+    print("running with cpu")
+
+
+def run_cuda(args):
+    print("running with cuda")
+    with torch.cuda.device(args.device):
+        print(torch.cuda.current_device())
+        print(torch.zeros(2, 3).cuda())
 
 
 if __name__ == "__main__":
