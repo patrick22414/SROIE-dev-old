@@ -1,4 +1,6 @@
 import torch
+import sys
+import argparse
 
 
 def my_function(x):
@@ -10,12 +12,8 @@ def my_function(x):
 
 
 if __name__ == "__main__":
-    x = torch.rand(3, 2, 2, requires_grad=True)
-    y = my_function(x)
-    print(y)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--device')
+    args = parser.parse_args()
 
-    z = y.sum()
-    print(z)
-
-    z.backward()
-    print(x.grad)
+    print(args.device)
