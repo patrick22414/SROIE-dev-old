@@ -25,7 +25,7 @@ ANCHORS = [
 ]
 N_ANCHOR = len(ANCHORS)
 
-model = MyModel(RESOLUTION, ANCHORS, CUDA)
+model = MyModel(RESOLUTION, ANCHORS, DEVICE)
 crit_confidence = torch.nn.BCELoss()
 crit_coordinate = torch.nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
