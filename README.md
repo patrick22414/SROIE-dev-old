@@ -2,8 +2,6 @@
 
 My development repo for ICDAR 2019 Robust Reading Challenge on Scanned Receipts OCR and Information Extraction (SROIE) with PyTorch.
 
-(Yes I made a typo in the repo name.)
-
 ## TODOs
 
 1. Branch the network and increase horizontal receptive field.
