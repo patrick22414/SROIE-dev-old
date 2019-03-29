@@ -4,7 +4,6 @@ import random
 
 import torch
 from PIL import Image, ImageColor, ImageDraw
-from progress.bar import Bar
 from torchvision import transforms
 
 from lib_data import get_train_data, get_valid_data
@@ -65,17 +64,16 @@ def train(max_epoch, batch_size):
 
         optimizer.step()
 
-        print(
-            f"{epoch:06d}: loss: {loss:<6.2f} "
-            f"@c: {loss_c:<6.2f} @x: {loss_x:<6.2f} @y: {loss_y:<6.2f} @w: {loss_w:<6.2f} @h: {loss_h:<6.2f}"
-        )
+        print(">_: {:06d}: loss: {:<6.2f} ".format(epoch, loss) +
+              "@c: {:<6.2f} @x: {:<6.2f} @y: {:<6.2f}".format(loss_c, loss_x, loss_y) +
+              "@w: {:<6.2f} @h: {:<6.2f}".format(loss_w, loss_h))
 
     print(c[0, 0, :, :])
     print(tc[0, 0, :, :])
 
 
 def test_1():
-    train(1000, 16)
+    train(1, 16)
 
 
 if __name__ == "__main__":

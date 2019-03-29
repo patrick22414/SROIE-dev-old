@@ -11,8 +11,8 @@ from torchvision import transforms
 
 def get_train_data(res, batch_size, anchors, n_grid):
     samples = random.sample(range(600), batch_size)
-    jpg_files = [f"../data_train/{s:03d}.jpg" for s in samples]
-    txt_files = [f"../data_train/{s:03d}.txt" for s in samples]
+    jpg_files = ["../data_train/{:03d}.jpg".format(s) for s in samples]
+    txt_files = ["../data_train/{:03d}.txt".format(s) for s in samples]
 
     # convert jpg files to NCWH tensor
     images = [Image.open(file).convert("L") for file in jpg_files]
