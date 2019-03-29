@@ -10,6 +10,8 @@ from lib_data import get_train_data, get_valid_data
 from lib_model import MyModel
 from lib_struct import Anchor, BBox
 
+DEVICE = torch.device("cuda:0")
+
 RESOLUTION = 320
 
 GRID_RES = 16
@@ -23,29 +25,26 @@ ANCHORS = [
 ]
 N_ANCHOR = len(ANCHORS)
 
-model = MyModel(RESOLUTION, ANCHORS)
+model = MyModel(RESOLUTION, ANCHORS, CUDA)
 crit_confidence = torch.nn.BCELoss()
 crit_coordinate = torch.nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
 
-if torch.cuda.is_available():
-    model.cuda()
-
 
 def train(max_epoch, batch_size):
-    emphasis = RESOLUTION
+    # emphasis = RESOLUTION
+    model.train()
 
     for epoch in range(max_epoch):
         optimizer.zero_grad()
 
         inpt, tc, tx, ty, tw, th = get_train_data(RESOLUTION, batch_size, ANCHORS, N_GRID)
-        if torch.cuda.is_available():
-            inpt.cuda()
-            tc.cuda()
-            tx.cuda()
-            ty.cuda()
-            tw.cuda()
-            th.cuda()
+        inpt.to(DEVICE)
+        tc.to(DEVICE)
+        tx.to(DEVICE)
+        ty.to(DEVICE)
+        tw.to(DEVICE)
+        th.to(DEVICE)
 
         c, x, y, w, h = model.forward(inpt)
 
@@ -73,7 +72,7 @@ def train(max_epoch, batch_size):
 
 
 def test_1():
-    train(100, 16)
+    train(1, 1)
 
 
 if __name__ == "__main__":
