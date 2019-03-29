@@ -64,16 +64,16 @@ def train(max_epoch, batch_size):
 
         optimizer.step()
 
-        print(">_: {:06d}: loss: {:<6.2f} ".format(epoch, loss) +
+        print("#{:06d}: loss: {:<6.2f} ".format(epoch, loss) +
               "@c: {:<6.2f} @x: {:<6.2f} @y: {:<6.2f}".format(loss_c, loss_x, loss_y) +
               "@w: {:<6.2f} @h: {:<6.2f}".format(loss_w, loss_h))
 
-    print(c[0, 0, :, :])
-    print(tc[0, 0, :, :])
+    # print(c[0, 0, :, :])
+    # print(tc[0, 0, :, :])
 
 
 def test_1():
-    train(1, 16)
+    train(100, 16)
 
 
 if __name__ == "__main__":
