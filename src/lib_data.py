@@ -9,7 +9,7 @@ from PIL import Image
 from torchvision import transforms
 
 
-def get_train_data(res, batch_size, anchors, n_grid):
+def get_train_data(res, batch_size, anchors, n_grid, device):
     samples = random.sample(range(600), batch_size)
     jpg_files = ["../data_train/{:03d}.jpg".format(s) for s in samples]
     txt_files = ["../data_train/{:03d}.txt".format(s) for s in samples]
@@ -31,22 +31,22 @@ def get_train_data(res, batch_size, anchors, n_grid):
         tc[i], tx[i], ty[i], tw[i], th[i], = txt_to_tensors(f, rx, ry, anchors, n_grid, int(res / n_grid))
 
     return (
-        data,
-        torch.stack(tc, dim=0),
-        torch.stack(tx, dim=0),
-        torch.stack(ty, dim=0),
-        torch.stack(tw, dim=0),
-        torch.stack(th, dim=0),
+        data.to(device),
+        torch.stack(tc, dim=0).to(device),
+        torch.stack(tx, dim=0).to(device),
+        torch.stack(ty, dim=0).to(device),
+        torch.stack(tw, dim=0).to(device),
+        torch.stack(th, dim=0).to(device),
     )
 
 
-def get_valid_data(res, batch_size):
+def get_valid_data(res, batch_size, device):
     jpg_files = random.sample(glob.glob("../data_valid/*.jpg"), batch_size)
 
     # convert jpg files to NCWH
     images = [Image.open(file).convert("L") for file in jpg_files]
     transform = transforms.Compose([transforms.Resize((res, res), Image.BICUBIC), transforms.ToTensor()])
-    tensor = torch.stack(list(map(transform, images)), dim=0)
+    tensor = torch.stack(list(map(transform, images)), dim=0).to(device)
 
     return tensor, jpg_files
 
