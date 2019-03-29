@@ -39,12 +39,12 @@ def train(max_epoch, batch_size):
         optimizer.zero_grad()
 
         inpt, tc, tx, ty, tw, th = get_train_data(RESOLUTION, batch_size, ANCHORS, N_GRID)
-        inpt.to(DEVICE)
-        tc.to(DEVICE)
-        tx.to(DEVICE)
-        ty.to(DEVICE)
-        tw.to(DEVICE)
-        th.to(DEVICE)
+        inpt = inpt.to(DEVICE)
+        tc = tc.to(DEVICE)
+        tx = tx.to(DEVICE)
+        ty = ty.to(DEVICE)
+        tw = tw.to(DEVICE)
+        th = th.to(DEVICE)
 
         c, x, y, w, h = model.forward(inpt)
 
