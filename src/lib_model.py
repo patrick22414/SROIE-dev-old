@@ -1,20 +1,25 @@
 import torch
 
-GRID_RES = 16
+GRID_RESO = 16
+
 
 class MyModel(torch.nn.Module):
-    def __init__(self, res, anchors, device):
+    def __init__(self, reso, anchors, device):
         super().__init__()
 
-        self.res = res
+        self.reso = reso
         self.anchors = anchors
         self.n_anchor = len(anchors)
-        self.n_grid = int(self.res / GRID_RES)
+        self.n_grid = int(self.reso / GRID_RESO)
 
-        self.anchor_tensor_w = torch.stack([torch.full((self.n_grid, self.n_grid), a.w, device=device) for a in self.anchors], dim=0)
-        self.anchor_tensor_h = torch.stack([torch.full((self.n_grid, self.n_grid), a.h, device=device) for a in self.anchors], dim=0)
+        self.anchor_tensor_w = torch.stack(
+            [torch.full((self.n_grid, self.n_grid), a[0], device=device) for a in self.anchors], dim=0
+        )
+        self.anchor_tensor_h = torch.stack(
+            [torch.full((self.n_grid, self.n_grid), a[1], device=device) for a in self.anchors], dim=0
+        )
 
-        self.grid_offset_x = torch.arange(float(self.n_grid), device=device).repeat(self.n_grid, 1).mul(GRID_RES)
+        self.grid_offset_x = torch.arange(float(self.n_grid), device=device).repeat(self.n_grid, 1).mul(GRID_RESO)
         self.grid_offset_y = self.grid_offset_x.t()
 
         self.feature_extractor = torch.nn.Sequential(
@@ -40,7 +45,7 @@ class MyModel(torch.nn.Module):
             #
             torch.nn.Conv2d(32, 64, 3, padding=1),
             torch.nn.BatchNorm2d(64),
-            torch.nn.ReLU()
+            torch.nn.ReLU(),
         ).to(device=device)
 
         self.conv_c = torch.nn.Conv2d(64, self.n_anchor, 3, padding=1).to(device=device)
@@ -50,17 +55,17 @@ class MyModel(torch.nn.Module):
         self.conv_h = torch.nn.Conv2d(64, self.n_anchor, 3, padding=1).to(device=device)
 
     def forward(self, inpt):
-        features = self.feature_extractor(inpt)
+        feature = self.feature_extractor(inpt)
 
-        c = torch.sigmoid(self.conv_c(features))
+        c = torch.sigmoid(self.conv_c(feature))
 
-        x = torch.sigmoid(self.conv_x(features)).mul(GRID_RES).add(self.grid_offset_x)
+        x = torch.sigmoid(self.conv_x(feature)).mul(GRID_RESO).add(self.grid_offset_x)
 
-        y = torch.sigmoid(self.conv_y(features)).mul(GRID_RES).add(self.grid_offset_y)
+        y = torch.sigmoid(self.conv_y(feature)).mul(GRID_RESO).add(self.grid_offset_y)
 
-        w = torch.tanh(self.conv_w(features)).exp().mul(self.anchor_tensor_w)
+        w = torch.tanh(self.conv_w(feature)).exp().mul(self.anchor_tensor_w)
 
-        h = torch.tanh(self.conv_h(features)).exp().mul(self.anchor_tensor_h)
+        h = torch.tanh(self.conv_h(feature)).exp().mul(self.anchor_tensor_h)
 
         return c, x, y, w, h
 

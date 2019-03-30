@@ -1,9 +1,12 @@
 import argparse
-import torch
+import os
 
-from lib_struct import Anchor
-from lib_model import MyModel, GRID_RES
-from lib_data import get_train_data, get_valid_data
+import numpy
+import torch
+from PIL import ImageDraw
+
+from lib_data import get_train_data, get_valid_data, kmeans_anchors
+from lib_model import GRID_RESO, MyModel
 
 
 def train(model, args, anchors, n_grid):
@@ -13,14 +16,10 @@ def train(model, args, anchors, n_grid):
     crit_coor = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
 
-    for epoch in range(args.max_epoch):
+    for epoch in range(1, args.max_epoch + 1):
         optimizer.zero_grad()
 
-        inpt, tc, tx, ty, tw, th = get_train_data(args.resolution,
-                                                  args.batch_size,
-                                                  anchors,
-                                                  n_grid,
-                                                  args.device)
+        inpt, tc, tx, ty, tw, th = get_train_data(args.reso, args.batch_size, anchors, args.device)
 
         c, x, y, w, h = model.forward(inpt)
 
@@ -39,32 +38,74 @@ def train(model, args, anchors, n_grid):
 
         optimizer.step()
 
-        print("#{:06d}: loss: {:<6.2f} ".format(epoch, loss) +
-              "@c: {:<6.2f} @x: {:<6.2f} @y: {:<6.2f}".format(loss_c, loss_x, loss_y) +
-              "@w: {:<6.2f} @h: {:<6.2f}".format(loss_w, loss_h))
+        print(
+            "#{:06d}: loss: {:<6.2f} @c: {:<6.2f} @x: {:<6.2f} @y: {:<6.2f} @w: {:<6.2f} @h: {:<6.2f}".format(
+                epoch, loss, loss_c, loss_x, loss_y, loss_w, loss_h
+            )
+        )
+
+        if args.valid_per != 0 and epoch % args.valid_per == 0:
+            dirname = "../results/valid_{}/".format(epoch)
+            os.mkdir(dirname)
+            valid_draw(model, args, dirname)
+            print("NOTE: Valid results available at {}".format(dirname))
+
+
+def valid_draw(model, args, dirname):
+    with torch.no_grad():
+        for i in range(10):
+            # for each image
+            inpt, image = get_valid_data(args.reso, args.device)
+            image = image.convert("RGB")
+            draw = ImageDraw.Draw(image)
+            cs, xs, ys, ws, hs = model.forward(inpt)
+            for ii, (c, x, y, w, h) in enumerate(zip(cs, xs, ys, ws, hs)):
+                # for each tile
+                mask = c > args.threshold
+                c = c[mask]
+                if image.width < image.height:
+                    x = x[mask]
+                    y = y[mask] + args.reso * ii
+                else:
+                    x = x[mask] + args.reso * ii
+                    y = y[mask]
+                w_half = w[mask] / 2
+                h_half = h[mask] / 2
+                boxes = numpy.stack(
+                    [
+                        numpy.array(x - w_half),
+                        numpy.array(y - h_half),
+                        numpy.array(x + w_half),
+                        numpy.array(y + h_half),
+                    ],
+                    axis=1,
+                )
+                for ci, box in zip(c, boxes):
+                    red = int(ci * 256)
+                    draw.rectangle(tuple(box), outline=(red, 0, 0))
+            image.save(dirname + "{}.jpg".format(i))
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=["train", "valid", "test"], default="train")
     parser.add_argument("-d", "--device", default="cpu")
-    parser.add_argument("-r", "--resolution", type=int, default=320)
-    parser.add_argument("-b", "--batch-size", type=int, default=10)
+    parser.add_argument("-r", "--reso", type=int, default=480)
+    parser.add_argument("-b", "--batch-size", type=int, default=16)
     parser.add_argument("-e", "--max-epoch", type=int, default=1)
+    parser.add_argument("-v", "--valid-per", type=int, default=0)
+    parser.add_argument("-a", "--n-anchor", type=int, default=6)
+    parser.add_argument("-t", "--threshold", type=float, default=0.75)
 
     args = parser.parse_args()
     args.device = torch.device(args.device)
 
-    n_grid = int(args.resolution / GRID_RES)
-    anchors = [
-        Anchor(GRID_RES * 1, GRID_RES),
-        Anchor(GRID_RES * 2, GRID_RES),
-        Anchor(GRID_RES * 4, GRID_RES),
-        Anchor(GRID_RES * 8, GRID_RES),
-        Anchor(GRID_RES * 16, GRID_RES),
-    ]
+    anchors = kmeans_anchors(args.reso, args.n_anchor)
 
-    model = MyModel(args.resolution, anchors, args.device)
+    model = MyModel(args.reso, anchors, args.device)
+
+    n_grid = int(args.reso / GRID_RESO)
+
     if args.mode == "train":
         train(model, args, anchors, n_grid)
     else:

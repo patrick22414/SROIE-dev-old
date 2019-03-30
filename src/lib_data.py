@@ -6,32 +6,69 @@ import random
 import numpy
 import torch
 from PIL import Image
+from scipy.cluster.vq import kmeans
 from torchvision import transforms
+from lib_model import GRID_RESO
 
 
-def get_train_data(res, batch_size, anchors, n_grid, device):
-    samples = random.sample(range(600), batch_size)
-    jpg_files = ["../data_train/{:03d}.jpg".format(s) for s in samples]
-    txt_files = ["../data_train/{:03d}.txt".format(s) for s in samples]
+def get_train_data(reso, batch_size, anchors, device):
+    filenames = [os.path.splitext(f)[0] for f in glob.glob("../data_train/*.jpg")]
+    samples = random.sample(filenames, batch_size)
+    jpg_files = [s + ".jpg" for s in samples]
+    txt_files = [s + ".txt" for s in samples]
 
     # convert jpg files to NCWH tensor
-    images = [Image.open(file).convert("L") for file in jpg_files]
-    ratio_x = [res / im.width for im in images]
-    ratio_y = [res / im.height for im in images]
-    transform = transforms.Compose([transforms.Resize((res, res)), transforms.ToTensor()])
-    data = torch.stack(list(map(transform, images)), dim=0)
+    data = [None] * batch_size
+    ratio = [None] * batch_size
+    for i, jpg in enumerate(jpg_files):
+        image = Image.open(jpg).convert("L")
+
+        if image.width < image.height:
+            ratio[i] = reso / image.width
+            new_size = (reso, int(image.height * ratio[i]))
+            crop_at = (0, random.randint(0, new_size[1] - reso))
+        else:
+            ratio[i] = reso / image.height
+            new_size = (int(image.width * ratio[i]), reso)
+            crop_at = (random.randint(0, new_size[0] - reso), 0)
+
+        crop_at = crop_at + (crop_at[0] + reso, crop_at[1] + reso)
+        image = image.resize(new_size).crop(crop_at)
+        data[i] = transforms.ToTensor()(image)
 
     # convert txt files to List of (c, x, y, w, h) of len N
-    tc = [None] * batch_size
-    tx = [None] * batch_size
-    ty = [None] * batch_size
-    tw = [None] * batch_size
-    th = [None] * batch_size
-    for i, (f, rx, ry) in enumerate(zip(txt_files, ratio_x, ratio_y)):
-        tc[i], tx[i], ty[i], tw[i], th[i], = txt_to_tensors(f, rx, ry, anchors, n_grid, int(res / n_grid))
+    n_anchor = len(anchors)
+    n_grid = int(reso / GRID_RESO)
+    tc = [torch.zeros(n_anchor, n_grid, n_grid, dtype=torch.uint8) for _ in range(batch_size)]
+    tx = [torch.zeros(n_anchor, n_grid, n_grid) for _ in range(batch_size)]
+    ty = [torch.zeros(n_anchor, n_grid, n_grid) for _ in range(batch_size)]
+    tw = [torch.zeros(n_anchor, n_grid, n_grid) for _ in range(batch_size)]
+    th = [torch.zeros(n_anchor, n_grid, n_grid) for _ in range(batch_size)]
+    for i, (f, r) in enumerate(zip(txt_files, ratio)):
+        with open(f, "r", encoding="utf-8", newline="") as csv_file:
+            for line in csv.reader(csv_file):
+                l = [float(n) * r for n in line[0:8]]
+                box_x = (l[0] + l[4]) / 2 - crop_at[0]
+                box_y = (l[1] + l[5]) / 2 - crop_at[1]
+                if box_x < 0 or box_x > reso or box_y < 0 or box_y > reso:
+                    continue
+                box_w = l[4] - l[0]
+                box_h = l[5] - l[1]
+                grid_x = int(box_x / GRID_RESO)
+                grid_y = int(box_y / GRID_RESO)
+                anchor_choice = best_anchor(box_w, box_h, anchors)
+                try:
+                    if tc[i][anchor_choice, grid_y, grid_x].item() == 0:
+                        tc[i][anchor_choice, grid_y, grid_x] = 1
+                        tx[i][anchor_choice, grid_y, grid_x] = box_x
+                        ty[i][anchor_choice, grid_y, grid_x] = box_y
+                        tw[i][anchor_choice, grid_y, grid_x] = box_w
+                        th[i][anchor_choice, grid_y, grid_x] = box_h
+                except IndexError:
+                    print(i, anchor_choice, box_x, grid_x, box_y, grid_y)
 
     return (
-        data.to(device),
+        torch.stack(data, dim=0).to(device),
         torch.stack(tc, dim=0).to(device),
         torch.stack(tx, dim=0).to(device),
         torch.stack(ty, dim=0).to(device),
@@ -40,51 +77,64 @@ def get_train_data(res, batch_size, anchors, n_grid, device):
     )
 
 
-def get_valid_data(res, batch_size, device):
-    jpg_files = random.sample(glob.glob("../data_valid/*.jpg"), batch_size)
+def get_valid_data(reso, device):
+    jpg_file = random.choice(glob.glob("../data_train/*.jpg"))
+    image = Image.open(jpg_file).convert("L")
 
-    # convert jpg files to NCWH
-    images = [Image.open(file).convert("L") for file in jpg_files]
-    transform = transforms.Compose([transforms.Resize((res, res), Image.BICUBIC), transforms.ToTensor()])
-    tensor = torch.stack(list(map(transform, images)), dim=0).to(device)
+    if image.width < image.height:
+        ratio = reso / image.width
+        new_size = (reso, int(image.height * ratio))
+        n_tile = int(numpy.ceil(new_size[1] / reso))
+        image = image.resize(new_size)
+        image = transforms.functional.pad(image, (0, 0, 0, n_tile * reso - image.height), fill=255)
 
-    return tensor, jpg_files
+        tensor = torch.zeros(n_tile, 1, reso, reso, device=device)
+        for i in range(n_tile):
+            tensor[i] = transforms.ToTensor()(image.crop((0, i * reso, reso, (i + 1) * reso)))
+    else:
+        ratio = reso / image.height
+        new_size = (int(image.width * ratio), reso)
+        n_tile = int(numpy.ceil(new_size[0] / reso))
+        image = image.resize(new_size)
+        image = transforms.functional.pad(image, (0, 0, n_tile * reso - image.width, 0), fill=255)
+
+        tensor = torch.zeros(n_tile, 1, reso, reso, device=device)
+        for i in range(n_tile):
+            tensor[i] = transforms.ToTensor()(image.crop((i * reso, 0, (i + 1) * reso, reso)))
+
+    return tensor, image
 
 
 def best_anchor(w, h, anchors):
-    dist_w = numpy.array([a.w for a in anchors]) - w
-    dist_h = numpy.array([a.h for a in anchors]) - h
+    dist_w = numpy.array([a[0] for a in anchors]) - w
+    dist_h = numpy.array([a[1] for a in anchors]) - h
     return numpy.argmin(numpy.hypot(dist_w, dist_h))
 
 
-def txt_to_tensors(txt_file, ratio_x, ratio_y, anchors, n_grid, grid_res):
-    n_anchor = len(anchors)
+def kmeans_anchors(reso, n_anchor):
+    filenames = [os.path.splitext(f)[0] for f in glob.glob("../data_train/*.jpg")]
+    jpg_files = [f + ".jpg" for f in filenames]
+    txt_files = [f + ".txt" for f in filenames]
 
-    c = torch.zeros(n_anchor, n_grid, n_grid, dtype=torch.uint8)
-    x = torch.zeros(n_anchor, n_grid, n_grid)
-    y = torch.zeros(n_anchor, n_grid, n_grid)
-    w = torch.zeros(n_anchor, n_grid, n_grid)
-    h = torch.zeros(n_anchor, n_grid, n_grid)
+    observation = [None] * len(jpg_files)
+    for i, (jpg, txt) in enumerate(zip(jpg_files, txt_files)):
+        # print(jpg)
+        image = Image.open(jpg)
+        ratio = reso / image.width
 
-    with open(txt_file, "r", encoding="utf-8", newline="") as csv_file:
-        for line in csv.reader(csv_file):
-            l = [int(n) for n in line[0:8]]
-            box_x = (l[0] + l[4]) / 2 * ratio_x
-            box_y = (l[1] + l[5]) / 2 * ratio_y
-            box_w = (l[4] - l[0]) * ratio_x
-            box_h = (l[5] - l[1]) * ratio_y
-            grid_x = int(box_x / grid_res)
-            grid_y = int(box_y / grid_res)
-            anchor_choice = best_anchor(box_w, box_h, anchors)
-            if c[anchor_choice, grid_y, grid_x].item() == 0:
-                c[anchor_choice, grid_y, grid_x] = 1
-                x[anchor_choice, grid_y, grid_x] = box_x
-                y[anchor_choice, grid_y, grid_x] = box_y
-                w[anchor_choice, grid_y, grid_x] = box_w
-                h[anchor_choice, grid_y, grid_x] = box_h
+        with open(txt, "r", encoding="utf-8", newline="") as csv_file:
+            lines = numpy.array([[int(x) for x in line[0:8]] for line in csv.reader(csv_file)])
+            wh = (lines[:, [4, 5]] - lines[:, [0, 1]]) * ratio
+            observation[i] = wh
 
-    return c, x, y, w, h
+    observation = numpy.concatenate(observation, axis=0).astype(numpy.float64)
+    anchors, distortion = kmeans(observation, n_anchor)
+
+    print("NOTE: Find {} anchors\n{} with distortion {}".format(n_anchor, anchors, distortion))
+    return anchors
 
 
 if __name__ == "__main__":
-    pass
+    tensor, image = get_valid_data(480, torch.device("cpu"))
+    print(tensor)
+    image.save("../tmp/tmp.jpg")

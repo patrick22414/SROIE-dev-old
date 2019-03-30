@@ -1,6 +1,7 @@
 # Custom dir
-data*/
-data*
+results/
+tmp/
+
 .vscode/
 .idea/
 
