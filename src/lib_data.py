@@ -50,22 +50,19 @@ def get_train_data(reso, batch_size, anchors, device):
                 l = [float(n) * r for n in line[0:8]]
                 box_x = (l[0] + l[4]) / 2 - crop_at[0]
                 box_y = (l[1] + l[5]) / 2 - crop_at[1]
-                if box_x < 0 or box_x > reso or box_y < 0 or box_y > reso:
+                if box_x < 0 or box_x >= reso or box_y < 0 or box_y >= reso:
                     continue
                 box_w = l[4] - l[0]
                 box_h = l[5] - l[1]
                 grid_x = int(box_x / GRID_RESO)
                 grid_y = int(box_y / GRID_RESO)
                 anchor_choice = best_anchor(box_w, box_h, anchors)
-                try:
-                    if tc[i][anchor_choice, grid_y, grid_x].item() == 0:
-                        tc[i][anchor_choice, grid_y, grid_x] = 1
-                        tx[i][anchor_choice, grid_y, grid_x] = box_x
-                        ty[i][anchor_choice, grid_y, grid_x] = box_y
-                        tw[i][anchor_choice, grid_y, grid_x] = box_w
-                        th[i][anchor_choice, grid_y, grid_x] = box_h
-                except IndexError:
-                    print(i, anchor_choice, box_x, grid_x, box_y, grid_y)
+                if tc[i][anchor_choice, grid_y, grid_x].item() == 0:
+                    tc[i][anchor_choice, grid_y, grid_x] = 1
+                    tx[i][anchor_choice, grid_y, grid_x] = box_x
+                    ty[i][anchor_choice, grid_y, grid_x] = box_y
+                    tw[i][anchor_choice, grid_y, grid_x] = box_w
+                    th[i][anchor_choice, grid_y, grid_x] = box_h
 
     return (
         torch.stack(data, dim=0).to(device),

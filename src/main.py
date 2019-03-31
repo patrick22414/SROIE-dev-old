@@ -6,15 +6,15 @@ import torch
 from PIL import ImageDraw
 
 from lib_data import get_train_data, get_valid_data, kmeans_anchors
-from lib_model import GRID_RESO, MyModel
+from lib_model import GRID_RESO, MainModel
 
 
 def train(model, args, anchors, n_grid):
     model.train()
 
-    crit_conf = torch.nn.BCELoss()
+    crit_conf = torch.nn.BCEWithLogitsLoss(reduction='mean')
     crit_coor = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
+    optimizer = torch.optim.Adam(model.parameters())
 
     for epoch in range(1, args.max_epoch + 1):
         optimizer.zero_grad()
@@ -47,7 +47,9 @@ def train(model, args, anchors, n_grid):
         if args.valid_per != 0 and epoch % args.valid_per == 0:
             dirname = "../results/valid_{}/".format(epoch)
             os.mkdir(dirname)
+            model.eval()
             valid_draw(model, args, dirname)
+            model.train()
             print("NOTE: Valid results available at {}".format(dirname))
 
 
@@ -90,7 +92,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=["train", "valid", "test"], default="train")
     parser.add_argument("-d", "--device", default="cpu")
-    parser.add_argument("-r", "--reso", type=int, default=480)
+    parser.add_argument("-r", "--reso", type=int, default=512)
     parser.add_argument("-b", "--batch-size", type=int, default=16)
     parser.add_argument("-e", "--max-epoch", type=int, default=1)
     parser.add_argument("-v", "--valid-per", type=int, default=0)
@@ -102,7 +104,7 @@ def main():
 
     anchors = kmeans_anchors(args.reso, args.n_anchor)
 
-    model = MyModel(args.reso, anchors, args.device)
+    model = MainModel(args.reso, anchors, args.device)
 
     n_grid = int(args.reso / GRID_RESO)
 
