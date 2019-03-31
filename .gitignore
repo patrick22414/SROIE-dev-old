@@ -1,6 +1,7 @@
 # Custom dir
 results/
 tmp/
+label/
 
 .vscode/
 .idea/

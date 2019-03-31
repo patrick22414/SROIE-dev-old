@@ -21,7 +21,7 @@ def get_train_data(reso, batch_size, anchors, device):
     data = [None] * batch_size
     ratio = [None] * batch_size
     for i, jpg in enumerate(jpg_files):
-        image = Image.open(jpg).convert("L")
+        image = Image.open(jpg).convert("RGB")
 
         if image.width < image.height:
             ratio[i] = reso / image.width

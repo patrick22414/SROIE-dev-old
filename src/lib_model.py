@@ -1,6 +1,6 @@
 import torch
 
-GRID_RESO = 32
+GRID_RESO = 16
 
 
 class MainModel(torch.nn.Module):
@@ -23,27 +23,26 @@ class MainModel(torch.nn.Module):
         self.grid_offset_y = self.grid_offset_x.t()
 
         self.feature_extractor = torch.nn.Sequential(
-            BasicConv(1, 4, kernel_size=3, padding=1),
-            Reduction(4),
+            BasicConv(3, 4, kernel_size=3, padding=1),
+            Reduction(4),  # -> 8 x 256 x 256
             #
-            BasicConv(8, 16, kernel_size=3, padding=1),
-            Reduction(16),  # -> 32x128x128
+            InceptionResidual(8),
+            Reduction(8),  # -> 16 x 128 x 128
+            #
+            InceptionResidual(16),
+            Reduction(16),  # -> 32 x 64 x 64
             #
             InceptionResidual(32),
-            Reduction(32),  # -> 64x64x64
+            Reduction(32),  # -> 64 x 32 x 32
             #
-            InceptionResidual(64),
-            Reduction(64),  # -> 128x32x32
-            #
-            InceptionResidual(128),
-            Reduction(128),  # -> 256x16x16
+            BasicConv(64, 32, kernel_size=1, padding=0) # -> 32 x 32 x 32
         ).to(device=device)
 
-        self.conv_c = torch.nn.Conv2d(256, self.n_anchor, 3, padding=1).to(device=device)
-        self.conv_x = torch.nn.Conv2d(256, self.n_anchor, 3, padding=1).to(device=device)
-        self.conv_y = torch.nn.Conv2d(256, self.n_anchor, 3, padding=1).to(device=device)
-        self.conv_w = torch.nn.Conv2d(256, self.n_anchor, 3, padding=1).to(device=device)
-        self.conv_h = torch.nn.Conv2d(256, self.n_anchor, 3, padding=1).to(device=device)
+        self.conv_c = torch.nn.Conv2d(32, self.n_anchor, 3, padding=1).to(device=device)
+        self.conv_x = torch.nn.Conv2d(32, self.n_anchor, 3, padding=1).to(device=device)
+        self.conv_y = torch.nn.Conv2d(32, self.n_anchor, 3, padding=1).to(device=device)
+        self.conv_w = torch.nn.Conv2d(32, self.n_anchor, 3, padding=1).to(device=device)
+        self.conv_h = torch.nn.Conv2d(32, self.n_anchor, 3, padding=1).to(device=device)
 
     def forward(self, inpt):
         feature = self.feature_extractor(inpt)
@@ -73,7 +72,10 @@ class InceptionResidual(torch.nn.Module):
     def __init__(self, in_channels):
         super().__init__()
         inner_channels = int(in_channels / 2)
-        self.branch_1 = BasicConv(in_channels, inner_channels, kernel_size=1, padding=0)
+        self.branch_1 = torch.nn.Sequential(
+            torch.nn.MaxPool2d(3, 1, padding=1),
+            BasicConv(in_channels, inner_channels, kernel_size=1, padding=0)
+        )
         self.branch_3 = torch.nn.Sequential(
             BasicConv(in_channels, inner_channels, kernel_size=1, padding=0),
             BasicConv(inner_channels, inner_channels, kernel_size=(1, 3), padding=(0, 1)),

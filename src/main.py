@@ -12,9 +12,11 @@ from lib_model import GRID_RESO, MainModel
 def train(model, args, anchors, n_grid):
     model.train()
 
-    crit_conf = torch.nn.BCEWithLogitsLoss(reduction='mean')
+    crit_conf = torch.nn.BCEWithLogitsLoss(reduction='sum')
     crit_coor = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters())
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+
+    avg_loss = 0
 
     for epoch in range(1, args.max_epoch + 1):
         optimizer.zero_grad()
@@ -24,11 +26,11 @@ def train(model, args, anchors, n_grid):
         c, x, y, w, h = model.forward(inpt)
 
         c_1 = c[tc]
-        c_0 = c[tc - 1]
+        # c_0 = c[tc - 1]
 
-        loss_c = crit_conf(c_1, torch.ones_like(c_1)) + crit_conf(c_0, torch.zeros_like(c_0))
-        loss_x = crit_coor(x[tc], tx[tc])
-        loss_y = crit_coor(y[tc], ty[tc])
+        loss_c = crit_conf(c_1, torch.ones_like(c_1))  # + crit_conf(c_0, torch.zeros_like(c_0))
+        loss_x = crit_coor(x[tc], tx[tc]) * GRID_RESO
+        loss_y = crit_coor(y[tc], ty[tc]) * GRID_RESO
         loss_w = crit_coor(w[tc], tw[tc])
         loss_h = crit_coor(h[tc], th[tc])
 
@@ -38,9 +40,10 @@ def train(model, args, anchors, n_grid):
 
         optimizer.step()
 
+        avg_loss = avg_loss * 0.9 + loss.item()
         print(
-            "#{:06d}: loss: {:<6.2f} @c: {:<6.2f} @x: {:<6.2f} @y: {:<6.2f} @w: {:<6.2f} @h: {:<6.2f}".format(
-                epoch, loss, loss_c, loss_x, loss_y, loss_w, loss_h
+            "#{:06d}: avg_loss: {:<9.2f} @c: {:<9.2f} @x: {:<9.2f} @y: {:<9.2f} @w: {:<9.2f} @h: {:<9.2f}".format(
+                epoch, avg_loss, loss_c, loss_x, loss_y, loss_w, loss_h
             )
         )
 
