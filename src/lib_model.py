@@ -52,8 +52,6 @@ class MainModel(torch.nn.Module):
             c = self.conv_c(feature)
         else:
             c = torch.sigmoid(self.conv_c(feature))
-            print("NOTE: In eval mode, confidence is computed with sigmoid")
-            print(c[0, 0, 0, :])
 
         x = torch.sigmoid(self.conv_x(feature)).mul(GRID_RESO).add(self.grid_offset_x)
 

@@ -76,16 +76,16 @@ def get_train_data(reso, batch_size, anchors, device):
 
 def get_valid_data(reso, device):
     jpg_file = random.choice(glob.glob("../data_train/*.jpg"))
-    image = Image.open(jpg_file).convert("L")
+    image = Image.open(jpg_file).convert("RGB")
 
     if image.width < image.height:
         ratio = reso / image.width
         new_size = (reso, int(image.height * ratio))
         n_tile = int(numpy.ceil(new_size[1] / reso))
         image = image.resize(new_size)
-        image = transforms.functional.pad(image, (0, 0, 0, n_tile * reso - image.height), fill=255)
+        image = transforms.functional.pad(image, (0, 0, 0, n_tile * reso - image.height), fill=(255, 255, 255))
 
-        tensor = torch.zeros(n_tile, 1, reso, reso, device=device)
+        tensor = torch.zeros(n_tile, 3, reso, reso, device=device)
         for i in range(n_tile):
             tensor[i] = transforms.ToTensor()(image.crop((0, i * reso, reso, (i + 1) * reso)))
     else:
@@ -93,9 +93,9 @@ def get_valid_data(reso, device):
         new_size = (int(image.width * ratio), reso)
         n_tile = int(numpy.ceil(new_size[0] / reso))
         image = image.resize(new_size)
-        image = transforms.functional.pad(image, (0, 0, n_tile * reso - image.width, 0), fill=255)
+        image = transforms.functional.pad(image, (0, 0, n_tile * reso - image.width, 0), fill=(255, 255, 255))
 
-        tensor = torch.zeros(n_tile, 1, reso, reso, device=device)
+        tensor = torch.zeros(n_tile, 3, reso, reso, device=device)
         for i in range(n_tile):
             tensor[i] = transforms.ToTensor()(image.crop((i * reso, 0, (i + 1) * reso, reso)))
 

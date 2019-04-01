@@ -25,10 +25,11 @@ def train(model, args, anchors, n_grid):
 
         c, x, y, w, h = model.forward(inpt)
 
-        c_1 = c[tc]
+        # c_1 = c[tc]
         # c_0 = c[tc - 1]
 
-        loss_c = crit_conf(c_1, torch.ones_like(c_1))  # + crit_conf(c_0, torch.zeros_like(c_0))
+        # loss_c = crit_conf(c_1, torch.ones_like(c_1))  # + crit_conf(c_0, torch.zeros_like(c_0))
+        loss_c = crit_conf(c, tc.float())
         loss_x = crit_coor(x[tc], tx[tc]) * GRID_RESO
         loss_y = crit_coor(y[tc], ty[tc]) * GRID_RESO
         loss_w = crit_coor(w[tc], tw[tc])
@@ -44,7 +45,9 @@ def train(model, args, anchors, n_grid):
         print(
             "#{:06d}: avg_loss: {:<9.2f} @c: {:<9.2f} @x: {:<9.2f} @y: {:<9.2f} @w: {:<9.2f} @h: {:<9.2f}".format(
                 epoch, avg_loss, loss_c, loss_x, loss_y, loss_w, loss_h
-            )
+            ),
+            torch.sigmoid(torch.max(c)).item(),
+            torch.sum(tc).item()
         )
 
         if args.valid_per != 0 and epoch % args.valid_per == 0:
@@ -86,8 +89,7 @@ def valid_draw(model, args, dirname):
                     axis=1,
                 )
                 for ci, box in zip(c, boxes):
-                    red = int(ci * 256)
-                    draw.rectangle(tuple(box), outline=(red, 0, 0))
+                    draw.rectangle(tuple(box), outline='magenta')
             image.save(dirname + "{}.jpg".format(i))
 
 
