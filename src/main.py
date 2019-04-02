@@ -12,7 +12,7 @@ from lib_model import GRID_RESO, MainModel
 def train(model, args, anchors, n_grid):
     model.train()
 
-    crit_conf = torch.nn.BCEWithLogitsLoss(reduction='sum')
+    crit_conf = torch.nn.BCEWithLogitsLoss(reduction="sum")
     crit_coor = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
@@ -21,7 +21,9 @@ def train(model, args, anchors, n_grid):
     for epoch in range(1, args.max_epoch + 1):
         optimizer.zero_grad()
 
-        inpt, tc, tx, ty, tw, th = get_train_data(args.reso, args.batch_size, anchors, args.device)
+        inpt, tc, tx, ty, tw, th, maskc = get_train_data(
+            args.reso, args.batch_size, anchors, args.threshold, args.device
+        )
 
         c, x, y, w, h = model.forward(inpt)
 
@@ -29,7 +31,7 @@ def train(model, args, anchors, n_grid):
         # c_0 = c[tc - 1]
 
         # loss_c = crit_conf(c_1, torch.ones_like(c_1))  # + crit_conf(c_0, torch.zeros_like(c_0))
-        loss_c = crit_conf(c, tc.float())
+        loss_c = crit_conf(c[maskc], tc[maskc].float())
         loss_x = crit_coor(x[tc], tx[tc]) * GRID_RESO
         loss_y = crit_coor(y[tc], ty[tc]) * GRID_RESO
         loss_w = crit_coor(w[tc], tw[tc])
@@ -47,7 +49,7 @@ def train(model, args, anchors, n_grid):
                 epoch, avg_loss, loss_c, loss_x, loss_y, loss_w, loss_h
             ),
             torch.sigmoid(torch.max(c)).item(),
-            torch.sum(tc).item()
+            torch.sum(tc).item(),
         )
 
         if args.valid_per != 0 and epoch % args.valid_per == 0:
@@ -89,7 +91,7 @@ def valid_draw(model, args, dirname):
                     axis=1,
                 )
                 for ci, box in zip(c, boxes):
-                    draw.rectangle(tuple(box), outline='magenta')
+                    draw.rectangle(tuple(box), outline="magenta")
             image.save(dirname + "{}.jpg".format(i))
 
 
@@ -102,7 +104,7 @@ def main():
     parser.add_argument("-e", "--max-epoch", type=int, default=1)
     parser.add_argument("-v", "--valid-per", type=int, default=0)
     parser.add_argument("-a", "--n-anchor", type=int, default=6)
-    parser.add_argument("-t", "--threshold", type=float, default=0.75)
+    parser.add_argument("-t", "--threshold", type=float, default=0.5)
 
     args = parser.parse_args()
     args.device = torch.device(args.device)

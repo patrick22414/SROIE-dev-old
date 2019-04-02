@@ -8,18 +8,19 @@ import torch
 from PIL import Image
 from scipy.cluster.vq import kmeans
 from torchvision import transforms
+
 from lib_model import GRID_RESO
 
 
-def get_train_data(reso, batch_size, anchors, device):
+def get_train_data(reso, batch_size, anchors, ignore, device):
     filenames = [os.path.splitext(f)[0] for f in glob.glob("../data_train/*.jpg")]
     samples = random.sample(filenames, batch_size)
     jpg_files = [s + ".jpg" for s in samples]
     txt_files = [s + ".txt" for s in samples]
 
     # convert jpg files to NCWH tensor
-    data = [None] * batch_size
-    ratio = [None] * batch_size
+    data = numpy.zeros([batch_size, 3, reso, reso], dtype=numpy.float32)
+    ratio = numpy.zeros(batch_size)
     for i, jpg in enumerate(jpg_files):
         image = Image.open(jpg).convert("RGB")
 
@@ -34,43 +35,60 @@ def get_train_data(reso, batch_size, anchors, device):
 
         crop_at = crop_at + (crop_at[0] + reso, crop_at[1] + reso)
         image = image.resize(new_size).crop(crop_at)
-        data[i] = transforms.ToTensor()(image)
+        data[i] = numpy.rollaxis(numpy.array(image), 2, 0)
 
     # convert txt files to List of (c, x, y, w, h) of len N
     n_anchor = len(anchors)
     n_grid = int(reso / GRID_RESO)
-    tc = [torch.zeros(n_anchor, n_grid, n_grid, dtype=torch.uint8) for _ in range(batch_size)]
-    tx = [torch.zeros(n_anchor, n_grid, n_grid) for _ in range(batch_size)]
-    ty = [torch.zeros(n_anchor, n_grid, n_grid) for _ in range(batch_size)]
-    tw = [torch.zeros(n_anchor, n_grid, n_grid) for _ in range(batch_size)]
-    th = [torch.zeros(n_anchor, n_grid, n_grid) for _ in range(batch_size)]
+    maskc = [torch.ones(n_anchor, n_grid, n_grid) for _ in range(batch_size)]
+    tc = numpy.zeros([batch_size, n_anchor, n_grid, n_grid], dtype=numpy.uint8)
+    tx = numpy.zeros([batch_size, n_anchor, n_grid, n_grid], dtype=numpy.float32)
+    ty = numpy.zeros([batch_size, n_anchor, n_grid, n_grid], dtype=numpy.float32)
+    tw = numpy.zeros([batch_size, n_anchor, n_grid, n_grid], dtype=numpy.float32)
+    th = numpy.zeros([batch_size, n_anchor, n_grid, n_grid], dtype=numpy.float32)
+    maskc = numpy.ones([batch_size, n_anchor, n_grid, n_grid], dtype=numpy.uint8)
     for i, (f, r) in enumerate(zip(txt_files, ratio)):
+        print("Converting txt", f)
         with open(f, "r", encoding="utf-8", newline="") as csv_file:
             for line in csv.reader(csv_file):
-                l = [float(n) * r for n in line[0:8]]
+                l = [int(n) * r for n in line[0:8]]
                 box_x = (l[0] + l[4]) / 2 - crop_at[0]
                 box_y = (l[1] + l[5]) / 2 - crop_at[1]
                 if box_x < 0 or box_x >= reso or box_y < 0 or box_y >= reso:
                     continue
                 box_w = l[4] - l[0]
                 box_h = l[5] - l[1]
-                grid_x = int(box_x / GRID_RESO)
-                grid_y = int(box_y / GRID_RESO)
-                anchor_choice = best_anchor(box_w, box_h, anchors)
-                if tc[i][anchor_choice, grid_y, grid_x].item() == 0:
-                    tc[i][anchor_choice, grid_y, grid_x] = 1
-                    tx[i][anchor_choice, grid_y, grid_x] = box_x
-                    ty[i][anchor_choice, grid_y, grid_x] = box_y
-                    tw[i][anchor_choice, grid_y, grid_x] = box_w
-                    th[i][anchor_choice, grid_y, grid_x] = box_h
+                truth_box = numpy.array([box_x - box_w / 2, box_y - box_h / 2, box_x + box_w / 2, box_y + box_h / 2])
+                ious, best, g0x, g0y, g1x, g1y = best_anchors(reso, anchors, truth_box)
+                best = (i,) + best
+                # grid_x = int(box_x / GRID_RESO)
+                # grid_y = int(box_y / GRID_RESO)
+                # anchor_choice = best_anchor(box_w, box_h, anchors)
+                # print(best, tc.shape, g0y, g0x)
+                if tc[best] == 0:
+                    tc[best] = 1
+                    tx[best] = box_x
+                    ty[best] = box_y
+                    tw[best] = box_w
+                    th[best] = box_h
+                    # print("ious:", ious)
+                    # print("shape 1:", maskc[i, :, g0y:g1y, g0x:g1x].shape)
+                    # print("shape 2:", ious.shape)
+                    maskc[i, :, g0y:g1y, g0x:g1x][ious > ignore] = 0
+
+    maskc = maskc + tc
+
+    # print(maskc[0, 0, ...])
+    # print(tc[0, 0, ...])
 
     return (
-        torch.stack(data, dim=0).to(device),
-        torch.stack(tc, dim=0).to(device),
-        torch.stack(tx, dim=0).to(device),
-        torch.stack(ty, dim=0).to(device),
-        torch.stack(tw, dim=0).to(device),
-        torch.stack(th, dim=0).to(device),
+        torch.tensor(data, device=device),
+        torch.tensor(tc, device=device),
+        torch.tensor(tx, device=device),
+        torch.tensor(ty, device=device),
+        torch.tensor(tw, device=device),
+        torch.tensor(th, device=device),
+        torch.tensor(maskc, device=device),
     )
 
 
@@ -102,10 +120,47 @@ def get_valid_data(reso, device):
     return tensor, image
 
 
-def best_anchor(w, h, anchors):
-    dist_w = numpy.array([a[0] for a in anchors]) - w
-    dist_h = numpy.array([a[1] for a in anchors]) - h
-    return numpy.argmin(numpy.hypot(dist_w, dist_h))
+def best_anchors(reso, anchors, truth_box):
+    # print("truth_box:", truth_box)
+    n_grid = int(reso / GRID_RESO)
+    g0x = int(numpy.floor(truth_box[0] / GRID_RESO))
+    g0y = int(numpy.floor(truth_box[1] / GRID_RESO))
+    g1x = int(numpy.ceil(truth_box[2] / GRID_RESO))
+    g1y = int(numpy.ceil(truth_box[3] / GRID_RESO))
+
+    g0x = numpy.maximum(g0x, 0)
+    g0y = numpy.maximum(g0y, 0)
+    g1x = numpy.minimum(g1x, n_grid)
+    g1y = numpy.minimum(g1y, n_grid)
+
+    n_anchor = len((anchors))
+    anchor_boxes = numpy.zeros([n_anchor, g1y - g0y, g1x - g0x, 4])
+
+    for k, a in enumerate(anchors):
+        for j in range(g1y - g0y):
+            for i in range(g1x - g0x):
+                center_x = (i + g0x + 0.5) * GRID_RESO
+                center_y = (j + g0y + 0.5) * GRID_RESO
+                anchor_boxes[k, j, i, :] = numpy.array(
+                    [center_x - a[0] / 2, center_y - a[1] / 2, center_x + a[0] / 2, center_y + a[1] / 2]
+                )
+
+    # print(anchor_boxes)
+    ious = iou_with_truth(anchor_boxes.reshape(-1, 4), truth_box).reshape(n_anchor, g1y - g0y, g1x - g0x)
+
+    # print("max iou:", numpy.max(ious))
+    best = numpy.argmax(ious)
+    best = numpy.unravel_index(best, ious.shape)
+    best = (best[0], best[1] + g0y, best[2] + g0x)
+    # print("gs:", g0x, g0y, g1x, g1y)
+
+    return ious, best, g0x, g0y, g1x, g1y
+
+
+def iou_with_truth(anchor_boxes, truth_box):
+    m = numpy.maximum(anchor_boxes, truth_box)
+    n = numpy.minimum(anchor_boxes, truth_box)
+    return ((n[:, 2] - m[:, 0]) * (n[:, 3] - m[:, 1])) / ((m[:, 2] - n[:, 0]) * (m[:, 3] - n[:, 1]))
 
 
 def kmeans_anchors(reso, n_anchor):
@@ -132,6 +187,7 @@ def kmeans_anchors(reso, n_anchor):
 
 
 if __name__ == "__main__":
-    tensor, image = get_valid_data(480, torch.device("cpu"))
-    print(tensor)
-    image.save("../tmp/tmp.jpg")
+    numpy.set_printoptions(threshold=10000, edgeitems=10, linewidth=1000)
+    reso = 512
+    anchors = kmeans_anchors(reso, 6)
+    get_train_data(reso, 1, anchors, 0.5, torch.device("cpu"))
