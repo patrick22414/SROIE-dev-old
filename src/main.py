@@ -22,7 +22,7 @@ def train(model, args, anchors, n_grid):
         optimizer.zero_grad()
 
         inpt, tc, tx, ty, tw, th, maskc = get_train_data(
-            args.reso, args.batch_size, anchors, args.threshold, args.device
+            args.reso, args.batch_size, anchors, 0.5, args.device
         )
 
         c, x, y, w, h = model.forward(inpt)
@@ -104,7 +104,7 @@ def main():
     parser.add_argument("-e", "--max-epoch", type=int, default=1)
     parser.add_argument("-v", "--valid-per", type=int, default=0)
     parser.add_argument("-a", "--n-anchor", type=int, default=6)
-    parser.add_argument("-t", "--threshold", type=float, default=0.5)
+    parser.add_argument("-t", "--threshold", type=float, default=0.75)
 
     args = parser.parse_args()
     args.device = torch.device(args.device)
