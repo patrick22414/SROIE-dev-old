@@ -48,29 +48,29 @@ def get_train_data(reso, batch_size, anchors, ignore, device):
     th = numpy.zeros([batch_size, n_anchor, n_grid, n_grid], dtype=numpy.float32)
     maskc = numpy.ones([batch_size, n_anchor, n_grid, n_grid], dtype=numpy.uint8)
     for i, (f, r) in enumerate(zip(txt_files, ratio)):
-        print("Converting txt", f)
+        # print("Converting txt", f)
         with open(f, "r", encoding="utf-8", newline="") as csv_file:
             for line in csv.reader(csv_file):
                 l = [int(n) * r for n in line[0:8]]
-                box_x = (l[0] + l[4]) / 2 - crop_at[0]
-                box_y = (l[1] + l[5]) / 2 - crop_at[1]
-                if box_x < 0 or box_x >= reso or box_y < 0 or box_y >= reso:
+                x = (l[0] + l[4]) / 2 - crop_at[0]
+                y = (l[1] + l[5]) / 2 - crop_at[1]
+                if x < 0 or x >= reso or y < 0 or y >= reso:
                     continue
-                box_w = l[4] - l[0]
-                box_h = l[5] - l[1]
-                truth_box = numpy.array([box_x - box_w / 2, box_y - box_h / 2, box_x + box_w / 2, box_y + box_h / 2])
-                ious, best, g0x, g0y, g1x, g1y = best_anchors(reso, anchors, truth_box)
+                w = l[4] - l[0]
+                h = l[5] - l[1]
+                box = numpy.array([x - w / 2, y - h / 2, x + w / 2, y + h / 2])
+                ious, best, g0x, g0y, g1x, g1y = best_anchors(reso, anchors, box)
                 best = (i,) + best
-                # grid_x = int(box_x / GRID_RESO)
-                # grid_y = int(box_y / GRID_RESO)
-                # anchor_choice = best_anchor(box_w, box_h, anchors)
+                # grid_x = int(x / GRID_RESO)
+                # grid_y = int(y / GRID_RESO)
+                # anchor_choice = best_anchor(w, h, anchors)
                 # print(best, tc.shape, g0y, g0x)
                 if tc[best] == 0:
                     tc[best] = 1
-                    tx[best] = box_x
-                    ty[best] = box_y
-                    tw[best] = box_w
-                    th[best] = box_h
+                    tx[best] = x
+                    ty[best] = y
+                    tw[best] = w
+                    th[best] = h
                     # print("ious:", ious)
                     # print("shape 1:", maskc[i, :, g0y:g1y, g0x:g1x].shape)
                     # print("shape 2:", ious.shape)
