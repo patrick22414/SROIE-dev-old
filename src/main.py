@@ -49,7 +49,6 @@ def train(model, args, anchors, n_grid):
                 epoch, avg_loss, loss_c, loss_x, loss_y, loss_w, loss_h
             ),
             torch.sigmoid(torch.max(c)).item(),
-            torch.sum(tc).item(),
         )
 
         if args.valid_per != 0 and epoch % args.valid_per == 0:
@@ -71,7 +70,7 @@ def valid_draw(model, args, dirname):
             cs, xs, ys, ws, hs = model.forward(inpt)
             for ii, (c, x, y, w, h) in enumerate(zip(cs, xs, ys, ws, hs)):
                 # for each tile
-                mask = c > args.threshold
+                mask = c > (torch.max(c) * 0.8)
                 c = c[mask]
                 if image.width < image.height:
                     x = x[mask]
