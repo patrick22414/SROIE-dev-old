@@ -1,7 +1,7 @@
 import torch
 import time
 
-H_RESO = 512  # height resolution
+H_RESO = 640  # height resolution
 G_RESO = 16  # grid resolution
 
 
@@ -9,19 +9,19 @@ class Model(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.network = torch.nn.Sequential(
-            # 3 x 512 x 256
+            # 3 x 640 x 320
             torch.nn.Conv2d(3, 6, 3, padding=1),
             torch.nn.BatchNorm2d(6),
             torch.nn.LeakyReLU(inplace=True),
-            # 6 x 512 x 256
+            # 6 x 640 x 320
             torch.nn.Conv2d(6, 12, 3, padding=1),
             torch.nn.BatchNorm2d(12),
             torch.nn.LeakyReLU(inplace=True),
-            # 12 x 512 x 256
+            # 12 x 640 x 320
             torch.nn.Conv2d(12, 24, 3, stride=2, padding=1),
             torch.nn.BatchNorm2d(24),
             torch.nn.LeakyReLU(inplace=True),
-            # 24 x 256 x 128
+            # 24 x 320 x 160
             torch.nn.Conv2d(24, 24, 3, padding=1),
             torch.nn.BatchNorm2d(24),
             torch.nn.LeakyReLU(inplace=True),
@@ -33,7 +33,7 @@ class Model(torch.nn.Module):
             torch.nn.Conv2d(24, 48, 3, stride=2, padding=1),
             torch.nn.BatchNorm2d(48),
             torch.nn.LeakyReLU(inplace=True),
-            # 48 x 128 x 64
+            # 48 x 160 x 80
             torch.nn.Conv2d(48, 48, 3, padding=1),
             torch.nn.BatchNorm2d(48),
             torch.nn.LeakyReLU(inplace=True),
@@ -45,7 +45,7 @@ class Model(torch.nn.Module):
             torch.nn.Conv2d(48, 96, 3, stride=2, padding=1),
             torch.nn.BatchNorm2d(96),
             torch.nn.LeakyReLU(inplace=True),
-            # 96 x 64 x 32
+            # 96 x 80 x 40
             torch.nn.Conv2d(96, 96, 3, padding=1),
             torch.nn.BatchNorm2d(96),
             torch.nn.LeakyReLU(inplace=True),
@@ -58,16 +58,16 @@ class Model(torch.nn.Module):
             torch.nn.BatchNorm2d(192),
             torch.nn.LeakyReLU(inplace=True),
             #
-            # 192 x 32 x 16
+            # 192 x 40 x 20
             torch.nn.Conv2d(192, 216, (1, 3), groups=3),
             torch.nn.BatchNorm2d(216),
             torch.nn.LeakyReLU(inplace=True),
-            # 216 x 32 x 14
+            # 216 x 40 x 18
             torch.nn.Conv2d(216, 240, (1, 3), groups=3),
             torch.nn.BatchNorm2d(240),
             torch.nn.LeakyReLU(inplace=True),
-            # 240 x 32 x 12
-            torch.nn.Conv2d(240, 240, (1, 12), groups=3),
+            # 240 x 40 x 16
+            torch.nn.Conv2d(240, 240, (1, 16), groups=3),
             torch.nn.Conv2d(240, 3, 1, groups=3),
         )
 
