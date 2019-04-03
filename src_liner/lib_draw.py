@@ -24,5 +24,5 @@ def draw_prediction(image, pred, threshold=None):
     y1 = (center + height / 2) / (H_RESO / image.height)
 
     for u, v in zip(y0, y1):
-        draw.line([0, u, image.width, u], fill="violet", width=2)
-        draw.line([0, v, image.width, v], fill="purple", width=2)
+        draw.line([0, u, image.width, u], fill="orange", width=2)
+        draw.line([0, v, image.width, v], fill="red", width=2)

@@ -65,7 +65,7 @@ def train(model, args):
 
                 model.eval()
 
-                eval_data, eval_images = get_eval_data(4, args.device)
+                eval_data, eval_images = get_eval_data(args.batch_size, args.device)
                 eval_preds = model(eval_data)
 
                 if eval_preds.is_cuda:
@@ -75,7 +75,7 @@ def train(model, args):
 
                 for i, (pred, image) in enumerate(zip(eval_preds, eval_images)):
                     draw_prediction(image, pred)
-                    image.save(dirname + "{}.jpg".format(i))
+                    image.save(dirname + "{}.png".format(i))
 
                 print("NOTE: Eval result available at {}".format(dirname))
 
