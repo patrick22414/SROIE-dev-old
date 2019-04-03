@@ -35,12 +35,12 @@ def get_train_data(batch_size, device):
 def get_eval_data(batch_size, device):
     jpg_files = random.sample(glob.glob("../data_train/*.jpg"), batch_size)
 
-    images = [Image.open(f).convert("RGB").resize([H_RESO // 2, H_RESO]) for f in jpg_files]
+    images = [Image.open(f).convert("RGB") for f in jpg_files]
 
     # convert jpg files to NCWH tensor
     data = numpy.zeros([batch_size, 3, H_RESO, H_RESO // 2], dtype=numpy.float32)
     for i, im in enumerate(images):
-        data[i] = numpy.moveaxis(numpy.array(im), 2, 0)
+        data[i] = numpy.moveaxis(numpy.array(im.resize([H_RESO // 2, H_RESO])), 2, 0)
 
     return torch.tensor(data, device=device), images
 
