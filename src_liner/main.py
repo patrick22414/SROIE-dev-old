@@ -46,7 +46,7 @@ def train(model, args):
         avg_loss = 0.9 * avg_loss + 0.1 * loss.item()
 
         print(
-            "#{:04d} | Loss: {:4.2f} ({:4.2f}, {:4.2f}, {:4.2f}) | Range: ({:.2f}, {:.2f})".format(
+            "#{:04d} | Loss: {:4.2f} ({:4.2f}, {:4.2f}, {:4.2f}) | Range: ({:.2e}, {:.2e})".format(
                 epoch,
                 avg_loss,
                 loss_c,
@@ -60,13 +60,19 @@ def train(model, args):
 
         if args.eval_per != 0 and epoch % args.eval_per == 0:
             with torch.no_grad():
-                dirname = "../result_liner/eval_{}/".format(epoch)
+                dirname = "../results_liner/eval_{}/".format(epoch)
                 os.makedirs(dirname, exist_ok=True)
 
                 model.eval()
 
                 eval_data, eval_images = get_eval_data(4, args.device)
                 eval_preds = model(eval_data)
+
+                if eval_preds.is_cuda:
+                    eval_preds = eval_preds.cpu().numpy()
+                else:
+                    eval_preds = eval_preds.numpy()
+
                 for i, (pred, image) in enumerate(zip(eval_preds, eval_images)):
                     draw_prediction(image, pred)
                     image.save(dirname + "{}.jpg".format(i))

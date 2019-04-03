@@ -7,7 +7,7 @@ from lib_model import G_RESO, H_RESO
 def draw_prediction(image, pred, threshold=None):
     draw = ImageDraw.Draw(image)
 
-    pred = numpy.array(pred)  # shape == (512, 3)
+    # pred = numpy.array(pred)  # shape == (512, 3)
 
     conf = pred[:, 0]
     center = pred[:, 1] * G_RESO + numpy.arange(G_RESO / 2, H_RESO, G_RESO)
