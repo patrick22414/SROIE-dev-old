@@ -46,7 +46,7 @@ def train(model, args):
         avg_loss = 0.9 * avg_loss + 0.1 * loss.item()
 
         print(
-            "#{:04d} | Loss: {:4.2f} ({:4.2f}, {:4.2f}, {:4.2f}) | Range: ({:.2e}, {:.2e})".format(
+            "#{:04d} | Loss: {:.2e} ({:.2e}, {:.2e}, {:.2e}) | Range: ({:.2e}, {:.2e})".format(
                 epoch,
                 avg_loss,
                 loss_c,
