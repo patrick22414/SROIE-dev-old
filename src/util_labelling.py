@@ -15,12 +15,7 @@ def labelling():
 
         with open(txt, "r", encoding="utf-8", newline="") as csv:
             for line in reader(csv):
-                rectangle = (
-                    int(line[0]),
-                    int(line[1]),
-                    int(line[4]),
-                    int(line[5]),
-                )
+                rectangle = (int(line[0]), int(line[1]), int(line[4]), int(line[5]))
                 draw.rectangle(rectangle, outline="magenta")
 
         image.save("../label/" + os.path.basename(jpg) + ".jpg")
@@ -38,21 +33,18 @@ def labelling_with_grid():
 
         for x in range(0, image.width, image.width // 32):
             draw.line([x, 0, x, image.height], fill="skyblue", width=1)
+
         for y in range(0, image.height, image.width // 32):
             draw.line([0, y, image.width, y], fill="skyblue", width=1)
 
         with open(txt, "r", encoding="utf-8", newline="") as csv:
             for line in reader(csv):
-                rectangle = (
-                    int(line[0]),
-                    int(line[1]),
-                    int(line[4]),
-                    int(line[5]),
-                )
+                rectangle = (int(line[0]), int(line[1]), int(line[4]), int(line[5]))
                 draw.rectangle(rectangle, outline="magenta")
 
-        image.save("../label_with_grid/" + os.path.basename(jpg) + ".jpg")
+        image.save("../label_with_grid/" + os.path.basename(jpg))
         print(jpg)
+
 
 if __name__ == "__main__":
     labelling_with_grid()
