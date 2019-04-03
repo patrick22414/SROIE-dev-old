@@ -2,8 +2,11 @@ import numpy
 import csv
 from PIL import Image
 
-H_RESO = 512  # height resolution
-G_RESO = 16  # grid resolution
+from main import H_RESO, G_RESO
+
+
+def get_train_data():
+    return 0, 1
 
 
 def txt_to_truth(txt, ratio):
@@ -23,7 +26,7 @@ def txt_to_truth(txt, ratio):
     # convert y0, y1 to offset, scale
     centers = numpy.arange(G_RESO / 2, H_RESO, G_RESO)
     offset = (truth[:, 1] + truth[:, 2]) / 2 - centers
-    offset = offset / (G_RESO / 2)
+    offset = offset / G_RESO
     offset[truth[:, 0] == 0] = 0
     scale = (truth[:, 2] - truth[:, 1]) / G_RESO
 
