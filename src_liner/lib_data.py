@@ -33,7 +33,7 @@ def get_train_data(batch_size, device):
 
 
 def get_eval_data(batch_size, device):
-    jpg_files = random.sample(glob.glob("../data_train/*.jpg"), batch_size)
+    jpg_files = random.sample(glob.glob("../data_valid/*.jpg"), batch_size)
 
     images = [Image.open(f).convert("RGB") for f in jpg_files]
 

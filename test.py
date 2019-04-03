@@ -74,5 +74,12 @@ def random_square():
         print(image)
 
 
+def move_to_data_valid():
+    poor_jpgs = random.sample(glob.glob("data_train/*.jpg"), 50)
+    for f in poor_jpgs:
+        new_name = "data_valid/" + os.path.basename(f)
+        os.rename(f, new_name)
+
+
 if __name__ == "__main__":
-    random_square()
+    move_to_data_valid()
