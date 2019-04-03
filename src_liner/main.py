@@ -17,7 +17,7 @@ def train(model, args):
     bce_loss = torch.nn.BCEWithLogitsLoss()
     mse_loss = torch.nn.MSELoss()
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1000)
 
