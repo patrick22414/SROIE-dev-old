@@ -1,14 +1,13 @@
+import argparse
 import glob
 import os
+import time
+
 import torch
-import argparse
 
-from lib_model import Model
-from lib_data import get_train_data
+from lib_data import get_eval_data, get_train_data
 from lib_draw import draw_prediction
-
-H_RESO = 512  # height resolution
-G_RESO = 16  # grid resolution
+from lib_model import Model
 
 
 def train(model, args):
@@ -22,17 +21,21 @@ def train(model, args):
 
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1000)
 
+    avg_loss = 0
+
     for epoch in range(1, args.max_epoch + 1):
+        start = time.time()
+
         optimizer.zero_grad()
 
-        data, truth = get_train_data()
+        data, truth = get_train_data(args.batch_size)
         data = data.to(args.device)
         truth = truth.to(args.device)
 
         preds = model(data)
 
         loss_c = bce_loss(preds[:, :, 0], truth[:, :, 0])
-        loss_o = mse_loss(preds[:, :, 1], truth[:, :, 2])
+        loss_o = mse_loss(preds[:, :, 1], truth[:, :, 1])
         loss_s = mse_loss(preds[:, :, 2], truth[:, :, 2])
 
         loss = loss_c + loss_o + loss_s
@@ -41,16 +44,38 @@ def train(model, args):
         optimizer.step()
         scheduler.step()
 
+        avg_loss = 0.9 * avg_loss + 0.1 * loss.item()
+
+        print(
+            "#{:04d} | Loss: {:4.2f} ({:4.2f}, {:4.2f}, {:4.2f}) | T: {:4.2f}s".format(
+                epoch, avg_loss, loss_c, loss_o, loss_s, time.time() - start
+            )
+        )
+
         if args.eval_per != 0 and epoch % args.eval_per == 0:
-            eval_data, _ = get_train_data()
+            with torch.no_grad():
+                dirname = "../result_liner/eval_{}/".format(epoch)
+                os.makedirs(dirname, exist_ok=True)
+
+                model.eval()
+
+                eval_data, eval_images = get_eval_data(4)
+                eval_preds = model(eval_data)
+                for i, (pred, image) in enumerate(zip(eval_preds, eval_images)):
+                    draw_prediction(image, pred)
+                    image.save(dirname + "{}.jpg".format(i))
+
+                print("NOTE: Eval result available at {}".format(dirname))
+
+                model.train()
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--device", default="cpu")
     parser.add_argument("-b", "--batch-size", type=int, default=16)
-    parser.add_argument("-e", "--max-epoch", type=int, default=1)
-    parser.add_argument("-v", "--eval-per", type=int, default=0)
+    parser.add_argument("-e", "--max-epoch", type=int, default=2)
+    parser.add_argument("-v", "--eval-per", type=int, default=2)
 
     args = parser.parse_args()
     args.device = torch.device(args.device)

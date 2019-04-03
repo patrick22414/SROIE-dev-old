@@ -1,6 +1,7 @@
-from PIL import Image, ImageDraw
 import numpy
-from main import H_RESO, G_RESO
+from PIL import Image, ImageDraw
+
+from lib_model import G_RESO, H_RESO
 
 
 def draw_prediction(image, pred, threshold=None):
@@ -23,5 +24,5 @@ def draw_prediction(image, pred, threshold=None):
     y1 = center + height / 2
 
     for u, v in zip(y0, y1):
-        draw.line([0, u, image.width, u], fill="aqua", width=1)
-        draw.line([0, v, image.width, v], fill="blue", width=2)
+        draw.line([0, u, image.width, u], fill="violet", width=1)
+        draw.line([0, v, image.width, v], fill="purple", width=2)

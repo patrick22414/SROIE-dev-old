@@ -1,12 +1,48 @@
 import numpy
 import csv
 from PIL import Image
+import torch
+import os
+import random
+import glob
 
-from main import H_RESO, G_RESO
+
+from lib_model import H_RESO, G_RESO
 
 
-def get_train_data():
-    return 0, 1
+def get_train_data(batch_size):
+    filenames = [os.path.splitext(f)[0] for f in glob.glob("../data_train/*.jpg")]
+    samples = random.sample(filenames, batch_size)
+    jpg_files = [s + ".jpg" for s in samples]
+    txt_files = [s + ".txt" for s in samples]
+
+    # convert jpg files to NCWH tensor
+    data = numpy.zeros([batch_size, 3, H_RESO, H_RESO // 2], dtype=numpy.float32)
+    ratio = numpy.zeros(batch_size)
+    for i, f in enumerate(jpg_files):
+        im = Image.open(f).convert("RGB")
+        ratio[i] = H_RESO / im.height
+        im = im.resize([H_RESO // 2, H_RESO])
+        data[i] = numpy.moveaxis(numpy.array(im), 2, 0)
+
+    truth = numpy.zeros([batch_size, H_RESO // G_RESO, 3], dtype=numpy.float32)
+    for i, (f, r) in enumerate(zip(txt_files, ratio)):
+        truth[i] = txt_to_truth(f, r)
+
+    return torch.tensor(data), torch.tensor(truth)
+
+
+def get_eval_data(batch_size):
+    jpg_files = random.sample(glob.glob("../data_train/*.jpg"), batch_size)
+
+    images = [Image.open(f).convert("RGB").resize([H_RESO // 2, H_RESO]) for f in jpg_files]
+
+    # convert jpg files to NCWH tensor
+    data = numpy.zeros([batch_size, 3, H_RESO, H_RESO // 2], dtype=numpy.float32)
+    for i, im in enumerate(images):
+        data[i] = numpy.moveaxis(numpy.array(im), 2, 0)
+
+    return torch.tensor(data), images
 
 
 def txt_to_truth(txt, ratio):
