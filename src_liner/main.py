@@ -28,15 +28,14 @@ def train(model, args):
 
         optimizer.zero_grad()
 
-        data, truth = get_train_data(args.batch_size)
-        data = data.to(args.device)
-        truth = truth.to(args.device)
+        data, truth = get_train_data(args.batch_size, args.device)
+        mask = truth[:, :, 0].byte()
 
         preds = model(data)
 
         loss_c = bce_loss(preds[:, :, 0], truth[:, :, 0])
-        loss_o = mse_loss(preds[:, :, 1], truth[:, :, 1])
-        loss_s = mse_loss(preds[:, :, 2], truth[:, :, 2])
+        loss_o = mse_loss(preds[:, :, 1][mask], truth[:, :, 1][mask])
+        loss_s = mse_loss(preds[:, :, 2][mask], truth[:, :, 2][mask])
 
         loss = loss_c + loss_o + loss_s
         loss.backward()
@@ -47,9 +46,16 @@ def train(model, args):
         avg_loss = 0.9 * avg_loss + 0.1 * loss.item()
 
         print(
-            "#{:04d} | Loss: {:4.2f} ({:4.2f}, {:4.2f}, {:4.2f}) | T: {:4.2f}s".format(
-                epoch, avg_loss, loss_c, loss_o, loss_s, time.time() - start
-            )
+            "#{:04d} | Loss: {:4.2f} ({:4.2f}, {:4.2f}, {:4.2f}) | Range: ({:.2f}, {:.2f})".format(
+                epoch,
+                avg_loss,
+                loss_c,
+                loss_o,
+                loss_s,
+                torch.sigmoid(preds[:, :, 0].min()).item(),
+                torch.sigmoid(preds[:, :, 0].max()).item(),
+            ),
+            "| T: {:4.2f}s".format(time.time() - start),
         )
 
         if args.eval_per != 0 and epoch % args.eval_per == 0:
@@ -59,7 +65,7 @@ def train(model, args):
 
                 model.eval()
 
-                eval_data, eval_images = get_eval_data(4)
+                eval_data, eval_images = get_eval_data(4, args.device)
                 eval_preds = model(eval_data)
                 for i, (pred, image) in enumerate(zip(eval_preds, eval_images)):
                     draw_prediction(image, pred)

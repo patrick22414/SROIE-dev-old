@@ -10,7 +10,7 @@ import glob
 from lib_model import H_RESO, G_RESO
 
 
-def get_train_data(batch_size):
+def get_train_data(batch_size, device):
     filenames = [os.path.splitext(f)[0] for f in glob.glob("../data_train/*.jpg")]
     samples = random.sample(filenames, batch_size)
     jpg_files = [s + ".jpg" for s in samples]
@@ -29,10 +29,10 @@ def get_train_data(batch_size):
     for i, (f, r) in enumerate(zip(txt_files, ratio)):
         truth[i] = txt_to_truth(f, r)
 
-    return torch.tensor(data), torch.tensor(truth)
+    return torch.tensor(data, device=device), torch.tensor(truth, device=device)
 
 
-def get_eval_data(batch_size):
+def get_eval_data(batch_size, device):
     jpg_files = random.sample(glob.glob("../data_train/*.jpg"), batch_size)
 
     images = [Image.open(f).convert("RGB").resize([H_RESO // 2, H_RESO]) for f in jpg_files]
@@ -42,12 +42,11 @@ def get_eval_data(batch_size):
     for i, im in enumerate(images):
         data[i] = numpy.moveaxis(numpy.array(im), 2, 0)
 
-    return torch.tensor(data), images
+    return torch.tensor(data, device=device), images
 
 
 def txt_to_truth(txt, ratio):
-    n_line = H_RESO // G_RESO
-    truth = numpy.zeros([n_line, 3])
+    truth = numpy.zeros([H_RESO // G_RESO, 3], dtype=numpy.float32)
     with open(txt, "r", encoding="utf-8", newline="") as file:
         for box in csv.reader(file):
             y0 = int(box[1]) * ratio

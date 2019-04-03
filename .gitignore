@@ -1,7 +1,7 @@
 # Custom dir
-results/
+results*/
 tmp/
-label/
+label*/
 
 .vscode/
 .idea/
