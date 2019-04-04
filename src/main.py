@@ -157,7 +157,7 @@ def train2(model, args):
 
         if args.eval_per != 0 and epoch % args.eval_per == 0:
             with torch.no_grad():
-                dirname = "../results_liner2/eval_{}/".format(epoch)
+                dirname = "../results/eval_{}/".format(epoch)
                 os.makedirs(dirname, exist_ok=True)
 
                 model.eval()
