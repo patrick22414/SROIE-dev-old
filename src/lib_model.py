@@ -77,7 +77,11 @@ class Model(torch.nn.Module):
 
         self.grid_detector = torch.nn.Sequential(
             # 240 x 50 x 25
-            torch.nn.Conv2d(240, 240, (1, 5), groups=5),
+            torch.nn.Conv2d(240, 240, 3, padding=(1, 0), groups=5),
+            torch.nn.BatchNorm2d(240),
+            torch.nn.LeakyReLU(inplace=True),
+            # 240 x 50 x 23
+            torch.nn.Conv2d(240, 240, (1, 3), groups=5),
             torch.nn.BatchNorm2d(240),
             torch.nn.LeakyReLU(inplace=True),
             # 240 x 50 x 21
@@ -126,10 +130,10 @@ class Model(torch.nn.Module):
 
         grids = self.grid_detector(features)
         conf = grids[:, 0, :, :] if self.training else torch.sigmoid(grids[:, 0, :, :])
-        offset_x = grids[:, 1, :, :]
-        offset_y = grids[:, 2, :, :]
-        scale_x = torch.exp(grids[:, 3, :, :])
-        scale_y = torch.exp(grids[:, 4, :, :])
+        offset_x = torch.nn.functional.softsign(grids[:, 1, :, :])
+        offset_y = torch.nn.functional.softsign(grids[:, 2, :, :])
+        scale_x = torch.nn.functional.softplus(grids[:, 3, :, :])
+        scale_y = torch.nn.functional.softplus(grids[:, 4, :, :])
 
         return torch.stack([conf, offset_x, offset_y, scale_x, scale_y], dim=1)
 
