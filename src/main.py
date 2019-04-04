@@ -104,7 +104,7 @@ def train2(model, args):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 2000)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 4000)
 
     avg_loss = 0
     loss_history = numpy.zeros(args.max_epoch)

@@ -31,7 +31,8 @@ class Model(torch.nn.Module):
             torch.nn.BatchNorm2d(30),
             torch.nn.LeakyReLU(inplace=True),
             # 24 x 400 x 200
-            Inception(30),
+            Residual(30),
+            # Inception(30),
             # torch.nn.Conv2d(30, 30, 3, padding=1),
             # torch.nn.BatchNorm2d(30),
             # torch.nn.LeakyReLU(inplace=True),
@@ -44,7 +45,8 @@ class Model(torch.nn.Module):
             torch.nn.BatchNorm2d(60),
             torch.nn.LeakyReLU(inplace=True),
             # 60 x 200 x 100
-            Inception(60),
+            Residual(60),
+            # Inception(60),
             # torch.nn.Conv2d(60, 60, 3, padding=1),
             # torch.nn.BatchNorm2d(60),
             # torch.nn.LeakyReLU(inplace=True),
@@ -57,7 +59,8 @@ class Model(torch.nn.Module):
             torch.nn.BatchNorm2d(120),
             torch.nn.LeakyReLU(inplace=True),
             # 120 x 100 x 50
-            Inception(120),
+            Residual(120),
+            # Inception(120),
             # torch.nn.Conv2d(120, 120, 3, padding=1),
             # torch.nn.BatchNorm2d(120),
             # torch.nn.LeakyReLU(inplace=True),
@@ -187,6 +190,26 @@ class Inception(torch.nn.Module):
         tail_out = self.inception_tail(body_out)
 
         return tail_out
+
+
+class Residual(torch.nn.Module):
+    def __init__(self, in_channels):
+        super().__init__()
+        self.conv_0 = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels, in_channels, 3, padding=1),
+            torch.nn.BatchNorm2d(in_channels),
+            torch.nn.LeakyReLU(inplace=True),
+        )
+        self.conv_1 = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels, in_channels, 3, padding=1),
+            torch.nn.BatchNorm2d(in_channels),
+            torch.nn.LeakyReLU(inplace=True),
+        )
+
+    def forward(self, input):
+        output_0 = self.conv_0(input) + input
+        output_1 = self.conv_1(output_0) + output_0
+        return output_1
 
 
 if __name__ == "__main__":
