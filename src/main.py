@@ -26,6 +26,10 @@ def train(model, args):
 
     avg_loss = 0
     loss_history = numpy.zeros(args.max_epoch)
+    loss_history_file = "../loss_history/{}.txt".format(
+        datetime.datetime.now().strftime("%Y%m%d-%H%M")
+    )
+    os.makedirs("../loss_history/", exist_ok=True)
 
     for epoch in range(1, args.max_epoch + 1):
         start = time.time()
@@ -63,6 +67,10 @@ def train(model, args):
             "| T: {:4.2f}s".format(time.time() - start),
         )
 
+        if args.checkpoint != 0 and epoch % args.checkpoint == 0:
+            numpy.savetxt(loss_history_file, loss_history[0:epoch])
+            print("NOTE: Loss history available at {}".format(loss_history_file))
+
         if args.eval_per != 0 and epoch % args.eval_per == 0:
             with torch.no_grad():
                 dirname = "../results_liner/eval_{}/".format(epoch)
@@ -86,13 +94,6 @@ def train(model, args):
 
                 model.train()
 
-    os.makedirs("../loss_history/", exist_ok=True)
-    loss_history_file = "../loss_history/{}.txt".format(
-        datetime.datetime.now().strftime("%Y%m%d-%H%M")
-    )
-    numpy.savetxt(loss_history_file, loss_history)
-    print("NOTE: Loss history available at {}".format(loss_history_file))
-
 
 def train2(model, args):
     model.to(args.device)
@@ -103,10 +104,14 @@ def train2(model, args):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1000)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 2000)
 
     avg_loss = 0
     loss_history = numpy.zeros(args.max_epoch)
+    loss_history_file = "../loss_history/{}.txt".format(
+        datetime.datetime.now().strftime("%Y%m%d-%H%M")
+    )
+    os.makedirs("../loss_history/", exist_ok=True)
 
     for epoch in range(1, args.max_epoch + 1):
         start = time.time()
@@ -135,6 +140,7 @@ def train2(model, args):
 
         print(
             "#{:04d} ".format(epoch),
+            "| LR: {:.1e}".format(scheduler.get_lr()[0]),
             "| Loss: {:.2e} ({:.2e}, {:.2e}, {:.2e}, {:.2e}, {:.2e})".format(
                 avg_loss, loss_c, loss_ox, loss_oy, loss_sx, loss_sy
             ),
@@ -144,6 +150,10 @@ def train2(model, args):
             ),
             "| T: {:4.2f}s".format(time.time() - start),
         )
+
+        if args.checkpoint != 0 and epoch % args.checkpoint == 0:
+            numpy.savetxt(loss_history_file, loss_history[0:epoch])
+            print("NOTE: Loss history available at {}".format(loss_history_file))
 
         if args.eval_per != 0 and epoch % args.eval_per == 0:
             with torch.no_grad():
@@ -168,13 +178,6 @@ def train2(model, args):
 
                 model.train()
 
-    os.makedirs("../loss_history/", exist_ok=True)
-    loss_history_file = "../loss_history/{}.txt".format(
-        datetime.datetime.now().strftime("%Y%m%d-%H%M")
-    )
-    numpy.savetxt(loss_history_file, loss_history)
-    print("NOTE: Loss history available at {}".format(loss_history_file))
-
 
 def main():
     parser = argparse.ArgumentParser()
@@ -182,6 +185,7 @@ def main():
     parser.add_argument("-b", "--batch-size", type=int, default=16)
     parser.add_argument("-e", "--max-epoch", type=int, default=2)
     parser.add_argument("-v", "--eval-per", type=int, default=2)
+    parser.add_argument("-c", "--checkpoint", type=int, default=100)
 
     args = parser.parse_args()
     args.device = torch.device(args.device)
