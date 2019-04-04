@@ -60,8 +60,8 @@ def train_line(model, args):
                 avg_loss, loss_c, loss_o, loss_s
             ),
             "| Range: ({:.2e}, {:.2e})".format(
-                torch.sigmoid(preds[:, 0, :, :].min()).item(),
-                torch.sigmoid(preds[:, 0, :, :].max()).item(),
+                torch.sigmoid(preds[:, :, 0].min()).item(),
+                torch.sigmoid(preds[:, :, 0].max()).item(),
             ),
             "| T: {:4.2f}s".format(time.time() - start),
         )
