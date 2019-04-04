@@ -97,15 +97,15 @@ class FeatureExtractor(torch.nn.Module):
             torch.nn.Conv2d(3, 15, 3, padding=1),
             torch.nn.BatchNorm2d(15),
             torch.nn.LeakyReLU(inplace=True),
-            # 6 x 800 x 400
+            # 15 x 800 x 400
             torch.nn.Conv2d(15, 15, 3, padding=1),
             torch.nn.BatchNorm2d(15),
             torch.nn.LeakyReLU(inplace=True),
-            # 12 x 800 x 400
+            # 15 x 800 x 400
             torch.nn.Conv2d(15, 30, 3, stride=2, padding=1),
             torch.nn.BatchNorm2d(30),
             torch.nn.LeakyReLU(inplace=True),
-            # 24 x 400 x 200
+            # 30 x 400 x 200
             Residual(30),
             # Inception(30),
             torch.nn.Conv2d(30, 60, 3, stride=2, padding=1),
