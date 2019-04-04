@@ -1,27 +1,28 @@
 import torch
 import time
 
-H_RESO = 768  # height resolution
+H_RESO = 800  # height resolution
 G_RESO = 16  # grid resolution
 
 
 class Model(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.network = torch.nn.Sequential(
-            # 3 x 768 x 384
+
+        self.feature_extractor = torch.nn.Sequential(
+            # 3 x 800 x 400
             torch.nn.Conv2d(3, 6, 3, padding=1),
             torch.nn.BatchNorm2d(6),
             torch.nn.LeakyReLU(inplace=True),
-            # 6 x 768 x 384
+            # 6 x 800 x 400
             torch.nn.Conv2d(6, 12, 3, padding=1),
             torch.nn.BatchNorm2d(12),
             torch.nn.LeakyReLU(inplace=True),
-            # 12 x 768 x 384
+            # 12 x 800 x 400
             torch.nn.Conv2d(12, 24, 3, stride=2, padding=1),
             torch.nn.BatchNorm2d(24),
             torch.nn.LeakyReLU(inplace=True),
-            # 24 x 384 x 192
+            # 24 x 400 x 200
             torch.nn.Conv2d(24, 24, 3, padding=1),
             torch.nn.BatchNorm2d(24),
             torch.nn.LeakyReLU(inplace=True),
@@ -33,7 +34,7 @@ class Model(torch.nn.Module):
             torch.nn.Conv2d(24, 48, 3, stride=2, padding=1),
             torch.nn.BatchNorm2d(48),
             torch.nn.LeakyReLU(inplace=True),
-            # 48 x 192 x 96
+            # 48 x 200 x 100
             torch.nn.Conv2d(48, 48, 3, padding=1),
             torch.nn.BatchNorm2d(48),
             torch.nn.LeakyReLU(inplace=True),
@@ -45,7 +46,7 @@ class Model(torch.nn.Module):
             torch.nn.Conv2d(48, 96, 3, stride=2, padding=1),
             torch.nn.BatchNorm2d(96),
             torch.nn.LeakyReLU(inplace=True),
-            # 96 x 96 x 48
+            # 96 x 100 x 50
             torch.nn.Conv2d(96, 96, 3, padding=1),
             torch.nn.BatchNorm2d(96),
             torch.nn.LeakyReLU(inplace=True),
@@ -57,28 +58,31 @@ class Model(torch.nn.Module):
             torch.nn.Conv2d(96, 192, 3, stride=2, padding=1),
             torch.nn.BatchNorm2d(192),
             torch.nn.LeakyReLU(inplace=True),
-            #
-            # 192 x 48 x 24
+        )
+
+        self.line_detector = torch.nn.Sequential(
+            # 192 x 50 x 25
             torch.nn.Conv2d(192, 216, (1, 3), groups=3),
             torch.nn.BatchNorm2d(216),
             torch.nn.LeakyReLU(inplace=True),
-            # 216 x 48 x 22
+            # 216 x 50 x 23
             torch.nn.Conv2d(216, 240, (1, 3), groups=3),
             torch.nn.BatchNorm2d(240),
             torch.nn.LeakyReLU(inplace=True),
-            # 240 x 48 x 20
+            # 240 x 50 x 21
             torch.nn.Conv2d(240, 240, (1, H_RESO // 32 - 4), groups=3),
             torch.nn.Conv2d(240, 3, 1, groups=3),
         )
 
-    def forward(self, input: torch.Tensor):
-        features = self.network(input).squeeze(dim=3)
+    def forward(self, input):
+        features = self.feature_extractor(input)
+        lines = self.line_detector(features).squeeze(dim=3)
 
-        conf = features[:, 0, :] if self.training else torch.sigmoid(features[:, 0, :])
+        conf = lines[:, 0, :] if self.training else torch.sigmoid(lines[:, 0, :])
 
-        offset = features[:, 1, :]
+        offset = lines[:, 1, :]
 
-        scale = torch.exp(features[:, 2, :])
+        scale = torch.exp(lines[:, 2, :])
 
         return torch.stack([conf, offset, scale], dim=2)
 
