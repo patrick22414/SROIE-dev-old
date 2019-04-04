@@ -7,13 +7,12 @@ import time
 import numpy
 import torch
 
-from lib_data import (get_eval_data, get_eval_data2, get_train_data,
-                      get_train_data2)
+from lib_data import get_eval_data, get_eval_data2, get_train_data, get_train_data2
 from lib_draw import draw_pred_grid, draw_pred_line
-from lib_model import Model
+from lib_model import LineModel, GridModel
 
 
-def train(model, args):
+def train_line(model, args):
     model.to(args.device)
     model.train()
 
@@ -27,7 +26,7 @@ def train(model, args):
     avg_loss = 0
     loss_history = numpy.zeros(args.max_epoch)
     loss_history_file = "../loss_history/{}.txt".format(
-        datetime.datetime.now().strftime("%Y%m%d-%H%M")
+        datetime.datetime.now().strftime("LINE-%Y%m%d-%H%M")
     )
     os.makedirs("../loss_history/", exist_ok=True)
 
@@ -55,14 +54,14 @@ def train(model, args):
         loss_history[epoch - 1] = avg_loss
 
         print(
-            "#{:04d} | Loss: {:.2e} ({:.2e}, {:.2e}, {:.2e}) | Range: ({:.2e}, {:.2e})".format(
-                epoch,
-                avg_loss,
-                loss_c,
-                loss_o,
-                loss_s,
-                torch.sigmoid(preds[:, :, 0].min()).item(),
-                torch.sigmoid(preds[:, :, 0].max()).item(),
+            "#{:04d} ".format(epoch),
+            "| LR: {:.1e}".format(scheduler.get_lr()[0]),
+            "| Loss: {:.2e} ({:.2e}, {:.2e}, {:.2e})".format(
+                avg_loss, loss_c, loss_o, loss_s
+            ),
+            "| Range: ({:.2e}, {:.2e})".format(
+                torch.sigmoid(preds[:, 0, :, :].min()).item(),
+                torch.sigmoid(preds[:, 0, :, :].max()).item(),
             ),
             "| T: {:4.2f}s".format(time.time() - start),
         )
@@ -73,7 +72,7 @@ def train(model, args):
 
         if args.eval_per != 0 and epoch % args.eval_per == 0:
             with torch.no_grad():
-                dirname = "../results_liner/eval_{}/".format(epoch)
+                dirname = "../results_line/eval_{}/".format(epoch)
                 os.makedirs(dirname, exist_ok=True)
 
                 model.eval()
@@ -190,8 +189,8 @@ def main():
     args = parser.parse_args()
     args.device = torch.device(args.device)
 
-    model = Model()
-    train2(model, args)
+    model = LineModel()
+    train_line(model, args)
 
 
 if __name__ == "__main__":

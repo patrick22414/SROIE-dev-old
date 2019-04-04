@@ -1,13 +1,13 @@
-import numpy
 import csv
-from PIL import Image
-import torch
+import glob
 import os
 import random
-import glob
 
+import numpy
+import torch
+from PIL import Image
 
-from lib_model import RESO_H, RESO_W, GRID_H, GRID_W
+from lib_model import GRID_H, GRID_W, RESO_H, RESO_W
 
 
 def get_train_data(batch_size, device):
