@@ -2,6 +2,7 @@
 results*/
 tmp/
 label*/
+loss_history/
 
 .vscode/
 .idea/

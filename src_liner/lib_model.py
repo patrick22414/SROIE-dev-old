@@ -31,41 +31,45 @@ class Model(torch.nn.Module):
             torch.nn.BatchNorm2d(30),
             torch.nn.LeakyReLU(inplace=True),
             # 24 x 400 x 200
-            torch.nn.Conv2d(30, 30, 3, padding=1),
-            torch.nn.BatchNorm2d(30),
-            torch.nn.LeakyReLU(inplace=True),
-            #
-            torch.nn.Conv2d(30, 30, 3, padding=1),
-            torch.nn.BatchNorm2d(30),
-            torch.nn.LeakyReLU(inplace=True),
+            Inception(30),
+            # torch.nn.Conv2d(30, 30, 3, padding=1),
+            # torch.nn.BatchNorm2d(30),
+            # torch.nn.LeakyReLU(inplace=True),
+            # #
+            # torch.nn.Conv2d(30, 30, 3, padding=1),
+            # torch.nn.BatchNorm2d(30),
+            # torch.nn.LeakyReLU(inplace=True),
             #
             torch.nn.Conv2d(30, 60, 3, stride=2, padding=1),
             torch.nn.BatchNorm2d(60),
             torch.nn.LeakyReLU(inplace=True),
             # 60 x 200 x 100
-            torch.nn.Conv2d(60, 60, 3, padding=1),
-            torch.nn.BatchNorm2d(60),
-            torch.nn.LeakyReLU(inplace=True),
-            #
-            torch.nn.Conv2d(60, 60, 3, padding=1),
-            torch.nn.BatchNorm2d(60),
-            torch.nn.LeakyReLU(inplace=True),
+            Inception(60),
+            # torch.nn.Conv2d(60, 60, 3, padding=1),
+            # torch.nn.BatchNorm2d(60),
+            # torch.nn.LeakyReLU(inplace=True),
+            # #
+            # torch.nn.Conv2d(60, 60, 3, padding=1),
+            # torch.nn.BatchNorm2d(60),
+            # torch.nn.LeakyReLU(inplace=True),
             #
             torch.nn.Conv2d(60, 120, 3, stride=2, padding=1),
             torch.nn.BatchNorm2d(120),
             torch.nn.LeakyReLU(inplace=True),
             # 120 x 100 x 50
-            torch.nn.Conv2d(120, 120, 3, padding=1),
-            torch.nn.BatchNorm2d(120),
-            torch.nn.LeakyReLU(inplace=True),
-            #
-            torch.nn.Conv2d(120, 120, 3, padding=1),
-            torch.nn.BatchNorm2d(120),
-            torch.nn.LeakyReLU(inplace=True),
+            Inception(120),
+            # torch.nn.Conv2d(120, 120, 3, padding=1),
+            # torch.nn.BatchNorm2d(120),
+            # torch.nn.LeakyReLU(inplace=True),
+            # #
+            # torch.nn.Conv2d(120, 120, 3, padding=1),
+            # torch.nn.BatchNorm2d(120),
+            # torch.nn.LeakyReLU(inplace=True),
             #
             torch.nn.Conv2d(120, 240, 3, stride=2, padding=1),
             torch.nn.BatchNorm2d(240),
             torch.nn.LeakyReLU(inplace=True),
+            # 240 x 50 x 25
         )
 
         self.grid_detector = torch.nn.Sequential(
@@ -125,6 +129,52 @@ class Model(torch.nn.Module):
         scale_y = torch.exp(grids[:, 4, :, :])
 
         return torch.stack([conf, offset_x, offset_y, scale_x, scale_y], dim=1)
+
+
+class Inception(torch.nn.Module):
+    def __init__(self, in_channels):
+        super().__init__()
+        half_channels = in_channels // 2
+
+        self.inception_head = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels, in_channels, 3, padding=1, groups=in_channels),
+            torch.nn.BatchNorm2d(in_channels),
+            torch.nn.LeakyReLU(inplace=True),
+        )
+
+        self.inception_body = torch.nn.ModuleList(
+            [
+                torch.nn.Sequential(
+                    torch.nn.Conv2d(in_channels, half_channels, 1),
+                    torch.nn.BatchNorm2d(half_channels),
+                    torch.nn.LeakyReLU(inplace=True),
+                    torch.nn.Conv2d(half_channels, half_channels, (1, 3), padding=(0, 1)),
+                    torch.nn.BatchNorm2d(half_channels),
+                    torch.nn.LeakyReLU(inplace=True),
+                ),
+                torch.nn.Sequential(
+                    torch.nn.Conv2d(in_channels, half_channels, 1),
+                    torch.nn.BatchNorm2d(half_channels),
+                    torch.nn.LeakyReLU(inplace=True),
+                    torch.nn.Conv2d(half_channels, half_channels, (3, 1), padding=(1, 0)),
+                    torch.nn.BatchNorm2d(half_channels),
+                    torch.nn.LeakyReLU(inplace=True),
+                ),
+            ]
+        )
+
+        self.inception_tail = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels, in_channels, 3, padding=1),
+            torch.nn.BatchNorm2d(in_channels),
+            torch.nn.LeakyReLU(inplace=True),
+        )
+
+    def forward(self, input):
+        head_out = self.inception_head(input)
+        body_out = torch.cat([mod(head_out) for mod in self.inception_body], dim=1)
+        tail_out = self.inception_tail(body_out)
+
+        return tail_out
 
 
 if __name__ == "__main__":

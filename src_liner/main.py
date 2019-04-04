@@ -1,12 +1,15 @@
 import argparse
+import datetime
 import glob
 import os
 import time
 
+import numpy
 import torch
 
-from lib_data import get_train_data, get_eval_data, get_train_data2, get_eval_data2
-from lib_draw import draw_pred_line, draw_pred_grid
+from lib_data import (get_eval_data, get_eval_data2, get_train_data,
+                      get_train_data2)
+from lib_draw import draw_pred_grid, draw_pred_line
 from lib_model import Model
 
 
@@ -19,9 +22,10 @@ def train(model, args):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1000)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 2000)
 
     avg_loss = 0
+    loss_history = numpy.zeros(args.max_epoch)
 
     for epoch in range(1, args.max_epoch + 1):
         start = time.time()
@@ -44,6 +48,7 @@ def train(model, args):
         scheduler.step()
 
         avg_loss = 0.9 * avg_loss + 0.1 * loss.item()
+        loss_history[epoch - 1] = avg_loss
 
         print(
             "#{:04d} | Loss: {:.2e} ({:.2e}, {:.2e}, {:.2e}) | Range: ({:.2e}, {:.2e})".format(
@@ -81,6 +86,13 @@ def train(model, args):
 
                 model.train()
 
+    os.makedirs("../loss_history/", exist_ok=True)
+    loss_history_file = "../loss_history/{}.txt".format(
+        datetime.datetime.now().strftime("%Y%m%d-%H%M")
+    )
+    numpy.savetxt(loss_history_file, loss_history)
+    print("NOTE: Loss history available at {}".format(loss_history_file))
+
 
 def train2(model, args):
     model.to(args.device)
@@ -94,6 +106,7 @@ def train2(model, args):
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1000)
 
     avg_loss = 0
+    loss_history = numpy.zeros(args.max_epoch)
 
     for epoch in range(1, args.max_epoch + 1):
         start = time.time()
@@ -118,16 +131,12 @@ def train2(model, args):
         scheduler.step()
 
         avg_loss = 0.9 * avg_loss + 0.1 * loss.item()
+        loss_history[epoch - 1] = avg_loss
 
         print(
             "#{:04d} ".format(epoch),
             "| Loss: {:.2e} ({:.2e}, {:.2e}, {:.2e}, {:.2e}, {:.2e})".format(
-                avg_loss,
-                loss_c,
-                loss_ox,
-                loss_oy,
-                loss_sx,
-                loss_sy,
+                avg_loss, loss_c, loss_ox, loss_oy, loss_sx, loss_sy
             ),
             "| Range: ({:.2e}, {:.2e})".format(
                 torch.sigmoid(preds[:, 0, :, :].min()).item(),
@@ -158,6 +167,14 @@ def train2(model, args):
                 print("NOTE: Eval result available at {}".format(dirname))
 
                 model.train()
+
+    os.makedirs("../loss_history/", exist_ok=True)
+    loss_history_file = "../loss_history/{}.txt".format(
+        datetime.datetime.now().strftime("%Y%m%d-%H%M")
+    )
+    numpy.savetxt(loss_history_file, loss_history)
+    print("NOTE: Loss history available at {}".format(loss_history_file))
+
 
 def main():
     parser = argparse.ArgumentParser()

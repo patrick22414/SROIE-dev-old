@@ -107,7 +107,7 @@ def txt_to_truth(txt, ratio):
 
 
 def txt_to_truth2(txt, ratio):
-    truth = numpy.zeros([5, RESO_H // GRID_H, RESO_W//GRID_W], dtype=numpy.float32)
+    truth = numpy.zeros([5, RESO_H // GRID_H, RESO_W // GRID_W], dtype=numpy.float32)
     with open(txt, "r", encoding="utf-8", newline="") as file:
         for box in csv.reader(file):
             x0 = int(box[0]) * ratio[0]
