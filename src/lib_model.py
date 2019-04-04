@@ -20,7 +20,7 @@ class LineModel(torch.nn.Module):
         self.line_detector = torch.nn.Sequential(
             # 240 x 48 x 24
             torch.nn.Conv2d(240, 240, (1, 3), groups=3),
-            torch.nn.BatchNorm2d(216),
+            torch.nn.BatchNorm2d(240),
             torch.nn.LeakyReLU(inplace=True),
             # 240 x 48 x 22
             torch.nn.Conv2d(240, 240, (1, 3), groups=3),
