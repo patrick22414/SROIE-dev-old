@@ -5,8 +5,8 @@ import time
 
 import torch
 
-from lib_data import get_eval_data, get_train_data
-from lib_draw import draw_prediction
+from lib_data import get_train_data, get_eval_data, get_train_data2, get_eval_data2
+from lib_draw import draw_pred_line, draw_pred_grid
 from lib_model import Model
 
 
@@ -74,13 +74,90 @@ def train(model, args):
                     eval_preds = eval_preds.numpy()
 
                 for i, (pred, image) in enumerate(zip(eval_preds, eval_images)):
-                    draw_prediction(image, pred)
+                    draw_pred_line(image, pred)
                     image.save(dirname + "{}.png".format(i))
 
                 print("NOTE: Eval result available at {}".format(dirname))
 
                 model.train()
 
+
+def train2(model, args):
+    model.to(args.device)
+    model.train()
+
+    bce_loss = torch.nn.BCEWithLogitsLoss()
+    mse_loss = torch.nn.MSELoss()
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1000)
+
+    avg_loss = 0
+
+    for epoch in range(1, args.max_epoch + 1):
+        start = time.time()
+
+        optimizer.zero_grad()
+
+        data, truth = get_train_data2(args.batch_size, args.device)
+        mask = truth[:, 0, :, :].byte()
+
+        preds = model(data)
+
+        loss_c = bce_loss(preds[:, 0, :, :], truth[:, 0, :, :])
+        loss_ox = mse_loss(preds[:, 1, :, :][mask], truth[:, 1, :, :][mask])
+        loss_oy = mse_loss(preds[:, 2, :, :][mask], truth[:, 2, :, :][mask])
+        loss_sx = mse_loss(preds[:, 3, :, :][mask], truth[:, 3, :, :][mask])
+        loss_sy = mse_loss(preds[:, 4, :, :][mask], truth[:, 4, :, :][mask])
+
+        loss = loss_c + loss_ox + loss_oy + loss_sx + loss_sy
+        loss.backward()
+
+        optimizer.step()
+        scheduler.step()
+
+        avg_loss = 0.9 * avg_loss + 0.1 * loss.item()
+
+        print(
+            "#{:04d} ".format(epoch),
+            "| Loss: {:.2e} ({:.2e}, {:.2e}, {:.2e}, {:.2e}, {:.2e})".format(
+                avg_loss,
+                loss_c,
+                loss_ox,
+                loss_oy,
+                loss_sx,
+                loss_sy,
+            ),
+            "| Range: ({:.2e}, {:.2e})".format(
+                torch.sigmoid(preds[:, 0, :, :].min()).item(),
+                torch.sigmoid(preds[:, 0, :, :].max()).item(),
+            ),
+            "| T: {:4.2f}s".format(time.time() - start),
+        )
+
+        if args.eval_per != 0 and epoch % args.eval_per == 0:
+            with torch.no_grad():
+                dirname = "../results_liner2/eval_{}/".format(epoch)
+                os.makedirs(dirname, exist_ok=True)
+
+                model.eval()
+
+                eval_data, eval_images = get_eval_data2(args.batch_size, args.device)
+                eval_preds = model(eval_data)
+
+                if eval_preds.is_cuda:
+                    eval_preds = eval_preds.cpu().numpy()
+                else:
+                    eval_preds = eval_preds.numpy()
+
+                for i, (p, im) in enumerate(zip(eval_preds, eval_images)):
+                    draw_pred_grid(im, p)
+                    im.save(dirname + "{}.png".format(i))
+
+                print("NOTE: Eval result available at {}".format(dirname))
+
+                model.train()
 
 def main():
     parser = argparse.ArgumentParser()
@@ -93,7 +170,7 @@ def main():
     args.device = torch.device(args.device)
 
     model = Model()
-    train(model, args)
+    train2(model, args)
 
 
 if __name__ == "__main__":
